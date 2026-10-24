@@ -3,7 +3,7 @@ from typing import Self
 
 from pydantic import AwareDatetime, BaseModel, Field, field_validator, model_validator
 
-from app.core.schemas import Name, ORMModel, PatchModel, ensure_unique_ids
+from app.core.schemas import MAX_IDS_PER_REQUEST, AthleteIds, Id, LongText, Name, ORMModel, PatchModel
 from app.modules.workouts.models import AttendanceStatus
 
 MAX_DURATION = timedelta(hours=24)
@@ -18,16 +18,11 @@ def check_interval(starts_at: datetime, ends_at: datetime) -> None:
 
 class WorkoutCreate(BaseModel):
     title: Name
-    description: str | None = Field(None, max_length=5000)
+    description: LongText | None = None
     location: str | None = Field(None, max_length=255)
     starts_at: AwareDatetime
     ends_at: AwareDatetime
-    athlete_ids: list[int] = []
-
-    @field_validator("athlete_ids")
-    @classmethod
-    def unique_athletes(cls, v: list[int]) -> list[int]:
-        return ensure_unique_ids(v)
+    athlete_ids: AthleteIds = []
 
     @model_validator(mode="after")
     def valid_interval(self) -> Self:
@@ -39,7 +34,7 @@ class WorkoutUpdate(PatchModel):
     non_nullable = ("title", "starts_at", "ends_at")
 
     title: Name | None = None
-    description: str | None = Field(None, max_length=5000)
+    description: LongText | None = None
     location: str | None = Field(None, max_length=255)
     starts_at: AwareDatetime | None = None
     ends_at: AwareDatetime | None = None
@@ -65,13 +60,13 @@ class WorkoutRead(ORMModel):
 
 
 class AttendanceItem(BaseModel):
-    athlete_id: int
+    athlete_id: Id
     status: AttendanceStatus
     comment: str | None = Field(None, max_length=500)
 
 
 class AttendanceUpdate(BaseModel):
-    items: list[AttendanceItem] = Field(min_length=1)
+    items: list[AttendanceItem] = Field(min_length=1, max_length=MAX_IDS_PER_REQUEST)
 
     @field_validator("items")
     @classmethod

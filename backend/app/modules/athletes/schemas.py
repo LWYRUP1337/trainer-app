@@ -3,9 +3,10 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
-from app.core.schemas import Name, ORMModel, PageParams, PatchModel
+from app.core.schemas import LongText, Name, ORMModel, PageParams, PatchModel
 
-Phone = Annotated[str, StringConstraints(strip_whitespace=True, max_length=32, pattern=r"^\+?[0-9\s\-()]{5,32}$")]
+Phone = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\+?[0-9\s\-()]{5,32}$")]
+SearchText = Annotated[str, StringConstraints(strip_whitespace=True, max_length=100)]
 
 
 class AthleteFields(BaseModel):
@@ -13,8 +14,8 @@ class AthleteFields(BaseModel):
     height_cm: int | None = Field(None, ge=50, le=250)
     weight_kg: float | None = Field(None, ge=20, le=300)
     phone: Phone | None = None
-    notes: str | None = Field(None, max_length=5000)
-    nutrition_plan: str | None = Field(None, max_length=5000)
+    notes: LongText | None = None
+    nutrition_plan: LongText | None = None
 
     @field_validator("birth_date")
     @classmethod
@@ -50,6 +51,6 @@ class AthleteRead(ORMModel):
 
 
 class AthleteFilters(PageParams):
-    search: str | None = Field(None, max_length=100)
+    search: SearchText | None = None
     is_active: bool | None = None
     has_active_injury: bool | None = None

@@ -2,12 +2,10 @@ import enum
 from datetime import date
 from typing import Self
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, model_validator
 
-from app.core.schemas import Name, ORMModel, PatchModel, ShortName
+from app.core.schemas import LongText, Name, ORMModel, PatchModel, ShortName
 from app.modules.injuries.models import Severity
-
-DATES_ORDER_MESSAGE = "Дата выздоровления не может быть раньше даты травмы"
 
 
 class InjuryStatus(enum.StrEnum):
@@ -19,11 +17,10 @@ def check_dates(started_at: date, recovered_at: date | None) -> None:
     today = date.today()
     if started_at > today:
         raise ValueError("Дата травмы не может быть в будущем")
-    if recovered_at is not None:
-        if recovered_at < started_at:
-            raise ValueError(DATES_ORDER_MESSAGE)
-        if recovered_at > today:
-            raise ValueError("Дата выздоровления не может быть в будущем")
+    if recovered_at is not None and recovered_at < started_at:
+        raise ValueError("Дата выздоровления не может быть раньше даты травмы")
+    if recovered_at is not None and recovered_at > today:
+        raise ValueError("Дата выздоровления не может быть в будущем")
 
 
 class InjuryCreate(BaseModel):
@@ -32,7 +29,7 @@ class InjuryCreate(BaseModel):
     severity: Severity
     started_at: date
     recovered_at: date | None = None
-    notes: str | None = Field(None, max_length=5000)
+    notes: LongText | None = None
 
     @model_validator(mode="after")
     def valid_dates(self) -> Self:
@@ -48,7 +45,7 @@ class InjuryUpdate(PatchModel):
     severity: Severity | None = None
     started_at: date | None = None
     recovered_at: date | None = None
-    notes: str | None = Field(None, max_length=5000)
+    notes: LongText | None = None
 
 
 class InjuryRead(ORMModel):

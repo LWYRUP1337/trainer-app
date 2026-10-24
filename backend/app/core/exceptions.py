@@ -1,3 +1,5 @@
+from collections.abc import Iterator
+from contextlib import contextmanager
 from typing import Any
 
 
@@ -36,3 +38,11 @@ class ConflictError(AppError):
 class BusinessValidationError(AppError):
     def __init__(self, code: str, message: str, **extra: Any):
         super().__init__(422, code, message, **extra)
+
+
+@contextmanager
+def business_rule(code: str) -> Iterator[None]:
+    try:
+        yield
+    except ValueError as exc:
+        raise BusinessValidationError(code, str(exc)) from exc

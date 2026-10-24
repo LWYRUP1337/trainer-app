@@ -1,11 +1,34 @@
 from typing import Annotated, Any, ClassVar, Generic, Self, TypeVar
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
-from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 T = TypeVar("T")
 
+MAX_ID = 2**31 - 1
+MAX_IDS_PER_REQUEST = 100
+
+
+def _unique(ids: list[int]) -> list[int]:
+    if len(set(ids)) != len(ids):
+        raise ValueError("Список спортсменов содержит повторы")
+    return ids
+
+
+def _known_timezone(name: str) -> str:
+    try:
+        ZoneInfo(name)
+    except (ZoneInfoNotFoundError, ValueError):
+        raise ValueError(f"Неизвестный часовой пояс: {name}") from None
+    return name
+
+
+Id = Annotated[int, Field(ge=1, le=MAX_ID)]
+AthleteIds = Annotated[list[Id], Field(max_length=MAX_IDS_PER_REQUEST), AfterValidator(_unique)]
 Name = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=255)]
 ShortName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=100)]
+LongText = Annotated[str, StringConstraints(max_length=5000)]
+TimeZoneName = Annotated[str, AfterValidator(_known_timezone)]
 
 
 class ORMModel(BaseModel):
@@ -25,10 +48,14 @@ class PatchModel(BaseModel):
     def changes(self) -> dict[str, Any]:
         return self.model_dump(exclude_unset=True)
 
+    def apply_to(self, obj: object) -> None:
+        for key, value in self.changes().items():
+            setattr(obj, key, value)
+
 
 class PageParams(BaseModel):
     limit: int = Field(50, ge=1, le=100)
-    offset: int = Field(0, ge=0)
+    offset: int = Field(0, ge=0, le=100_000)
 
 
 class Page(BaseModel, Generic[T]):
@@ -36,9 +63,3 @@ class Page(BaseModel, Generic[T]):
     total: int
     limit: int
     offset: int
-
-
-def ensure_unique_ids(ids: list[int]) -> list[int]:
-    if len(set(ids)) != len(ids):
-        raise ValueError("Список спортсменов содержит повторы")
-    return ids

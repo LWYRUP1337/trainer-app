@@ -1,8 +1,10 @@
 from functools import lru_cache
-from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
+from zoneinfo import ZoneInfo
 
-from pydantic import Field, field_validator
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
+from app.core.schemas import TimeZoneName
 
 
 class Settings(BaseSettings):
@@ -12,16 +14,7 @@ class Settings(BaseSettings):
     secret_key: str = Field(min_length=32)
     access_token_expire_minutes: int = Field(60 * 12, ge=1)
     cors_origins: list[str] = ["http://localhost:5173"]
-    default_timezone: str = "UTC"
-
-    @field_validator("default_timezone")
-    @classmethod
-    def valid_timezone(cls, v: str) -> str:
-        try:
-            ZoneInfo(v)
-        except (ZoneInfoNotFoundError, ValueError):
-            raise ValueError(f"Неизвестный часовой пояс: {v}") from None
-        return v
+    default_timezone: TimeZoneName = "UTC"
 
     @property
     def tz(self) -> ZoneInfo:

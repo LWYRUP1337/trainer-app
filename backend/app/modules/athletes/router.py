@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Query
 
-from app.api.deps import CurrentUser, DbSession
+from app.api.deps import CurrentUser, DbSession, PathId
 from app.core.schemas import Page
 from app.modules.athletes import service
 from app.modules.athletes.schemas import AthleteCreate, AthleteFilters, AthleteRead, AthleteUpdate
@@ -27,15 +27,15 @@ def create_athlete(data: AthleteCreate, db: DbSession, user: CurrentUser) -> Ath
 
 
 @router.get("/{athlete_id}")
-def get_athlete(athlete_id: int, db: DbSession, user: CurrentUser) -> AthleteRead:
+def get_athlete(athlete_id: PathId, db: DbSession, user: CurrentUser) -> AthleteRead:
     return AthleteRead.model_validate(service.get_athlete(db, user.id, athlete_id))
 
 
 @router.patch("/{athlete_id}")
-def update_athlete(athlete_id: int, data: AthleteUpdate, db: DbSession, user: CurrentUser) -> AthleteRead:
+def update_athlete(athlete_id: PathId, data: AthleteUpdate, db: DbSession, user: CurrentUser) -> AthleteRead:
     return AthleteRead.model_validate(service.update_athlete(db, user.id, athlete_id, data))
 
 
 @router.delete("/{athlete_id}", status_code=204)
-def delete_athlete(athlete_id: int, db: DbSession, user: CurrentUser) -> None:
+def delete_athlete(athlete_id: PathId, db: DbSession, user: CurrentUser) -> None:
     service.delete_athlete(db, user.id, athlete_id)
