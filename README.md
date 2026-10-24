@@ -197,19 +197,18 @@ npm run screenshots
 ```
 backend/
   app/
-    main.py            приложение FastAPI, обработчики ошибок, CORS
-    core/config.py     настройки из переменных окружения
-    core/security.py   хеширование паролей (bcrypt), JWT
-    database.py        подключение, сессии, создание таблиц
-    models.py          модели SQLAlchemy
-    schemas.py         схемы валидации запросов и ответов (Pydantic)
-    errors.py          бизнес-ошибки
-    services/          операции с данными и бизнес-логика
-    api/routes/        маршруты API
-  tests/               тесты API (pytest)
+    main.py              сборка приложения FastAPI: CORS, обработчики ошибок, роутеры
+    core/                config.py (настройки), security.py (bcrypt, JWT), exceptions.py (бизнес-ошибки),
+                         schemas.py (общие схемы: Page, PageParams, PatchModel)
+    db/                  base.py (Base), session.py (engine, сессии), transaction.py (commit с переводом ошибок БД),
+                         models.py (реестр всех моделей), init.py (создание таблиц)
+    api/                 deps.py (сессия БД, текущий пользователь), errors.py (обработчики ошибок), router.py
+    modules/             доменные модули, в каждом models.py, schemas.py, service.py, router.py
+      auth/  athletes/  injuries/  workouts/  week_plans/  reports/
+  tests/                 тесты API по модулям (pytest)
 ```
 
-Маршруты только принимают запрос и отдают ответ, вся логика и работа с БД в `services/`.
+Роутер принимает запрос и возвращает Pydantic-схему ответа, логика и работа с БД в `service.py` модуля.
 
 ### Модель данных
 
@@ -244,7 +243,7 @@ erDiagram
 
 ### Настройка и запуск
 
-**Через Docker.** Описан в «Быстром старте» выше. Таблицы создаются автоматически при старте backend (`init_db` в `app/database.py`), отдельных миграций на этом этапе нет.
+**Через Docker.** Описан в «Быстром старте» выше. Таблицы создаются автоматически при старте backend (`init_db` в `app/db/init.py`), отдельных миграций на этом этапе нет.
 
 **Без Docker.** Нужны Python 3.12+ и запущенный PostgreSQL.
 
@@ -296,8 +295,8 @@ uvicorn app.main:app --reload
 
 ```bash
 docker compose up -d db
-docker compose exec db createdb -U trainer trainer_test      # логин из вашего .env
-docker compose run --rm -e TEST_DATABASE_URL=postgresql+psycopg://trainer:ПАРОЛЬ@db:5432/trainer_test backend pytest -v
+docker compose exec db sh -c 'createdb -U "$POSTGRES_USER" trainer_test'
+docker compose run --rm backend sh -c 'TEST_DATABASE_URL="${DATABASE_URL%/*}/trainer_test" pytest -v'
 ```
 
 Ручная проверка: откройте http://localhost:8000/docs, зарегистрируйтесь, нажмите Authorize, создайте спортсмена и тренировку, затем попробуйте создать пересекающуюся (ждите `409`) и проверьте данные в БД: `docker compose exec db psql -U trainer -d trainer -c "select * from workouts;"`.
