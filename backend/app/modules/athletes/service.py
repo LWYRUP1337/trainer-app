@@ -24,16 +24,13 @@ def get_athlete(db: Session, coach_id: int, athlete_id: int) -> Athlete:
 def load_athletes(db: Session, coach_id: int, athlete_ids: Collection[int], *, active_only: bool = False) -> list[Athlete]:
     if not athlete_ids:
         return []
-    found = list(db.scalars(select(Athlete).where(Athlete.coach_id == coach_id, Athlete.id.in_(athlete_ids))).all())
+    found = list(db.scalars(select(Athlete).where(Athlete.coach_id == coach_id, Athlete.id.in_(athlete_ids))))
     missing = sorted(set(athlete_ids) - {a.id for a in found})
     if missing:
         raise BusinessValidationError("athletes_not_found", f"Спортсмены не найдены: {missing}", athlete_ids=missing)
-    if active_only:
-        inactive = sorted(a.id for a in found if not a.is_active)
-        if inactive:
-            raise BusinessValidationError(
-                "athletes_inactive", f"Спортсмены в архиве: {inactive}", athlete_ids=inactive
-            )
+    inactive = sorted(a.id for a in found if not a.is_active) if active_only else []
+    if inactive:
+        raise BusinessValidationError("athletes_inactive", f"Спортсмены в архиве: {inactive}", athlete_ids=inactive)
     return found
 
 
@@ -47,7 +44,7 @@ def list_athletes(db: Session, coach_id: int, filters: AthleteFilters) -> tuple[
         active = exists().where(Injury.athlete_id == Athlete.id, Injury.recovered_at.is_(None))
         stmt = stmt.where(active if filters.has_active_injury else ~active)
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
-    items = db.scalars(stmt.order_by(Athlete.full_name, Athlete.id).limit(filters.limit).offset(filters.offset)).all()
+    items = db.scalars(stmt.order_by(Athlete.full_name, Athlete.id).limit(filters.limit).offset(filters.offset))
     return list(items), total
 
 
@@ -55,16 +52,13 @@ def create_athlete(db: Session, coach_id: int, data: AthleteCreate) -> Athlete:
     athlete = Athlete(coach_id=coach_id, **data.model_dump())
     db.add(athlete)
     commit(db)
-    db.refresh(athlete)
     return athlete
 
 
 def update_athlete(db: Session, coach_id: int, athlete_id: int, data: AthleteUpdate) -> Athlete:
     athlete = get_athlete(db, coach_id, athlete_id)
-    for key, value in data.changes().items():
-        setattr(athlete, key, value)
+    data.apply_to(athlete)
     commit(db)
-    db.refresh(athlete)
     return athlete
 
 

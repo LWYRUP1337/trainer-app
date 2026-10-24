@@ -42,7 +42,6 @@ class Workout(CreatedAtMixin, Base):
     ends_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
     participants: Mapped[list["WorkoutParticipant"]] = relationship(
-        back_populates="workout",
         cascade="all, delete-orphan",
         passive_deletes=True,
         order_by="WorkoutParticipant.id",
@@ -64,7 +63,6 @@ class WorkoutParticipant(Base):
     )
     comment: Mapped[str | None] = mapped_column(String(500))
 
-    workout: Mapped[Workout] = relationship(back_populates="participants")
     athlete: Mapped["Athlete"] = relationship(lazy="joined")
 
     @property

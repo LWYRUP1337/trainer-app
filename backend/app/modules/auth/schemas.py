@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
@@ -31,11 +32,11 @@ class UserUpdate(PatchModel):
 
 class UserRead(ORMModel):
     id: int
-    email: EmailStr
+    email: str
     full_name: str
     created_at: datetime
 
 
 class Token(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: Literal["bearer"] = "bearer"

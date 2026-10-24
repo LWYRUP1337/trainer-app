@@ -17,16 +17,13 @@ def create_user(db: Session, data: UserCreate) -> User:
     except IntegrityError as exc:
         db.rollback()
         raise ConflictError("email_taken", "Пользователь с таким email уже существует") from exc
-    db.refresh(user)
     return user
 
 
 def login(db: Session, email: str, password: str) -> str:
     user = db.scalar(select(User).where(User.email == email.strip().lower()))
-    if user is None:
-        verify_password(password, DUMMY_HASH)
-        raise UnauthorizedError("Неверный email или пароль")
-    if not verify_password(password, user.password_hash):
+    password_ok = verify_password(password, user.password_hash if user else DUMMY_HASH)
+    if user is None or not password_ok:
         raise UnauthorizedError("Неверный email или пароль")
     return create_access_token(user.id)
 
@@ -40,8 +37,6 @@ def get_user_by_token(db: Session, token: str) -> User:
 
 
 def update_user(db: Session, user: User, data: UserUpdate) -> User:
-    for key, value in data.changes().items():
-        setattr(user, key, value)
+    data.apply_to(user)
     commit(db)
-    db.refresh(user)
     return user

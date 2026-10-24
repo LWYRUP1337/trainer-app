@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.core.exceptions import BusinessValidationError, ConflictError, NotFoundError
+from app.core.exceptions import BusinessValidationError, ConflictError, NotFoundError, business_rule
 from app.db.transaction import commit
 from app.modules.athletes.service import load_athletes
 from app.modules.workouts.models import AttendanceStatus, Workout, WorkoutParticipant
@@ -14,11 +14,7 @@ STATUSES_AFTER_START = {AttendanceStatus.present, AttendanceStatus.absent}
 
 
 def get_workout(db: Session, coach_id: int, workout_id: int) -> Workout:
-    workout = db.scalar(
-        select(Workout)
-        .where(Workout.id == workout_id, Workout.coach_id == coach_id)
-        .execution_options(populate_existing=True)
-    )
+    workout = db.scalar(select(Workout).where(Workout.id == workout_id, Workout.coach_id == coach_id))
     if workout is None:
         raise NotFoundError("Тренировка не найдена")
     return workout
@@ -43,7 +39,7 @@ def list_workouts(db: Session, coach_id: int, filters: WorkoutFilters) -> list[W
         stmt = stmt.where(Workout.starts_at >= start)
     if end:
         stmt = stmt.where(Workout.starts_at < end)
-    return list(db.scalars(stmt.order_by(Workout.starts_at, Workout.id).limit(filters.limit)).all())
+    return list(db.scalars(stmt.order_by(Workout.starts_at, Workout.id).limit(filters.limit)))
 
 
 def ensure_free(db: Session, coach_id: int, start: datetime, end: datetime, exclude_id: int | None = None) -> None:
@@ -71,24 +67,21 @@ def create_workout(db: Session, coach_id: int, data: WorkoutCreate) -> Workout:
     )
     db.add(workout)
     commit(db)
-    return get_workout(db, coach_id, workout.id)
+    return workout
 
 
 def update_workout(db: Session, coach_id: int, workout_id: int, data: WorkoutUpdate) -> Workout:
     workout = get_workout(db, coach_id, workout_id)
     changes = data.changes()
-    if "starts_at" in changes or "ends_at" in changes:
+    if changes.keys() & {"starts_at", "ends_at"}:
         start = changes.get("starts_at", workout.starts_at)
         end = changes.get("ends_at", workout.ends_at)
-        try:
+        with business_rule("invalid_time_range"):
             check_interval(start, end)
-        except ValueError as exc:
-            raise BusinessValidationError("invalid_time_range", str(exc)) from exc
         ensure_free(db, coach_id, start, end, exclude_id=workout.id)
-    for key, value in changes.items():
-        setattr(workout, key, value)
+    data.apply_to(workout)
     commit(db)
-    return get_workout(db, coach_id, workout_id)
+    return workout
 
 
 def delete_workout(db: Session, coach_id: int, workout_id: int) -> None:
@@ -106,14 +99,12 @@ def set_attendance(db: Session, coach_id: int, workout_id: int, items: list[Atte
     load_athletes(db, coach_id, [i.athlete_id for i in items if i.athlete_id not in existing], active_only=True)
     for item in items:
         participant = existing.get(item.athlete_id)
-        if participant:
-            participant.status, participant.comment = item.status, item.comment
+        if participant is None:
+            workout.participants.append(WorkoutParticipant(**item.model_dump()))
         else:
-            workout.participants.append(
-                WorkoutParticipant(athlete_id=item.athlete_id, status=item.status, comment=item.comment)
-            )
+            participant.status, participant.comment = item.status, item.comment
     commit(db)
-    return get_workout(db, coach_id, workout_id)
+    return workout
 
 
 def remove_participant(db: Session, coach_id: int, workout_id: int, athlete_id: int) -> None:

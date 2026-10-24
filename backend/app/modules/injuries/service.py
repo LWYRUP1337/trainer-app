@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.core.exceptions import BusinessValidationError, NotFoundError
+from app.core.exceptions import NotFoundError, business_rule
 from app.db.transaction import commit
 from app.modules.athletes.models import Athlete
 from app.modules.athletes.service import get_athlete
@@ -23,7 +23,7 @@ def list_injuries(db: Session, coach_id: int, athlete_id: int, status: InjurySta
         stmt = stmt.where(Injury.recovered_at.is_(None))
     elif status is InjuryStatus.recovered:
         stmt = stmt.where(Injury.recovered_at.is_not(None))
-    return list(db.scalars(stmt.order_by(Injury.started_at.desc(), Injury.id.desc())).all())
+    return list(db.scalars(stmt.order_by(Injury.started_at.desc(), Injury.id.desc())))
 
 
 def create_injury(db: Session, coach_id: int, athlete_id: int, data: InjuryCreate) -> Injury:
@@ -31,21 +31,16 @@ def create_injury(db: Session, coach_id: int, athlete_id: int, data: InjuryCreat
     injury = Injury(athlete_id=athlete_id, **data.model_dump())
     db.add(injury)
     commit(db)
-    db.refresh(injury)
     return injury
 
 
 def update_injury(db: Session, coach_id: int, injury_id: int, data: InjuryUpdate) -> Injury:
     injury = get_injury(db, coach_id, injury_id)
     changes = data.changes()
-    try:
+    with business_rule("invalid_dates"):
         check_dates(changes.get("started_at", injury.started_at), changes.get("recovered_at", injury.recovered_at))
-    except ValueError as exc:
-        raise BusinessValidationError("invalid_dates", str(exc)) from exc
-    for key, value in changes.items():
-        setattr(injury, key, value)
+    data.apply_to(injury)
     commit(db)
-    db.refresh(injury)
     return injury
 
 

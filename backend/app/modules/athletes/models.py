@@ -1,14 +1,10 @@
 from datetime import date
 from decimal import Decimal
-from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Numeric, SmallInteger, String, Text, text
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db.base import Base, CreatedAtMixin
-
-if TYPE_CHECKING:
-    from app.modules.injuries.models import Injury
 
 
 class Athlete(CreatedAtMixin, Base):
@@ -29,10 +25,3 @@ class Athlete(CreatedAtMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     nutrition_plan: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
-
-    injuries: Mapped[list["Injury"]] = relationship(
-        back_populates="athlete",
-        cascade="all, delete-orphan",
-        passive_deletes=True,
-        order_by="Injury.started_at.desc()",
-    )
