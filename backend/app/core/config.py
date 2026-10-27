@@ -12,7 +12,9 @@ class Settings(BaseSettings):
 
     database_url: str
     secret_key: str = Field(min_length=32)
-    access_token_expire_minutes: int = Field(60 * 12, ge=1)
+    access_token_expire_minutes: int = Field(15, ge=1, le=60)
+    refresh_token_expire_days: int = Field(30, ge=1, le=90)
+    refresh_cookie_secure: bool = True
     cors_origins: list[str] = ["http://localhost:5173"]
     default_timezone: TimeZoneName = "UTC"
 

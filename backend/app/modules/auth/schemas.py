@@ -40,3 +40,4 @@ class UserRead(ORMModel):
 class Token(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
+    expires_in: int
