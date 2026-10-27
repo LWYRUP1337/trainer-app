@@ -261,17 +261,26 @@ cp .env.example .env              # впишите свой DATABASE_URL и SECR
 uvicorn app.main:app --reload
 ```
 
-Параметры подключения хранятся только в окружении: `DATABASE_URL`, `SECRET_KEY`, `CORS_ORIGINS`, `DEFAULT_TIMEZONE`. Примеры без секретов лежат в `.env.example` и `backend/.env.example`, реальные `.env` в Git не попадают.
+Параметры подключения хранятся только в окружении: `DATABASE_URL`, `SECRET_KEY`, `ACCESS_TOKEN_EXPIRE_MINUTES`, `REFRESH_TOKEN_EXPIRE_DAYS`, `REFRESH_COOKIE_SECURE`, `CORS_ORIGINS`, `DEFAULT_TIMEZONE`. Примеры без секретов лежат в `.env.example` и `backend/.env.example`, реальные `.env` в Git не попадают.
 
 Чтобы пересоздать таблицы с нуля в Docker, удалите том: `docker compose down -v`.
 
 ### API
 
-Префикс `/api/v1`, интерактивная документация на `/docs`. Авторизация: `POST /auth/login` возвращает JWT, дальше заголовок `Authorization: Bearer <token>` (в `/docs` кнопка Authorize).
+Префикс `/api/v1`, интерактивная документация на `/docs`.
+
+Аутентификация построена на двух токенах:
+
+- **access token** — JWT (HS256) на 15 минут (`ACCESS_TOKEN_EXPIRE_MINUTES`), передаётся в заголовке `Authorization: Bearer <token>` (в `/docs` кнопка Authorize);
+- **refresh token** — случайная строка на 30 дней (`REFRESH_TOKEN_EXPIRE_DAYS`), приходит в cookie `refresh_token` с флагами `HttpOnly`, `Secure`, `SameSite=Strict` и путём `/api/v1/auth`. В БД хранится только его SHA-256-хеш.
+
+`POST /auth/login` выдаёт оба токена и открывает сессию. `POST /auth/refresh` меняет refresh token на новый (ротация) и выдаёт новый access token. Истёкший, неизвестный или отозванный refresh token отклоняется с `401`. Повторное использование уже заменённого токена считается кражей, и вся сессия отзывается. `POST /auth/logout` отзывает refresh-токены текущей сессии и удаляет cookie; другие сессии пользователя продолжают работать. Пароли хранятся в виде bcrypt-хешей.
+
+Публичные маршруты: `/health`, `POST /auth/register`, `/auth/login`, `/auth/refresh`, `/auth/logout`. Остальные требуют access token. Данные спортсменов, тренировок, планов и отчётов видны и изменяются только их тренером.
 
 | Ресурс | Методы |
 |---|---|
-| `/auth` | `POST /register`, `POST /login`, `GET/PATCH /me` |
+| `/auth` | `POST /register`, `POST /login`, `POST /refresh`, `POST /logout`, `GET/PATCH /me` |
 | `/athletes` | `GET` (поиск `search`, `is_active`, `has_active_injury`, `limit/offset`), `POST`, `GET/PATCH/DELETE /{id}` |
 | `/athletes/{id}/injuries`, `/injuries/{id}` | список (`status=active\|recovered`), создание, чтение, изменение, удаление |
 | `/workouts` | `GET` (`year`+`month` или `date_from`+`date_to`), `POST`, `GET/PATCH/DELETE /{id}`, `PUT /{id}/attendance`, `DELETE /{id}/participants/{athlete_id}` |
@@ -282,7 +291,7 @@ uvicorn app.main:app --reload
 
 | Статус | Когда |
 |---|---|
-| `401` | нет или неверный токен, неверный пароль |
+| `401` | нет, неверный или просроченный access token, недействительный refresh token, неверный пароль |
 | `404` | запись не найдена или принадлежит другому тренеру |
 | `409` | пересечение тренировок (`time_conflict`), занятый email |
 | `422` | некорректные данные: пустое имя, рост вне диапазона, конец раньше начала, время без часового пояса, неизвестный спортсмен |
