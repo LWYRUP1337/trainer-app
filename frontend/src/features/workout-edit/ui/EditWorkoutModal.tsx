@@ -1,8 +1,7 @@
-import { useState } from 'react'
-import { Alert, DatePicker, Form, Input, Modal, TimePicker, message } from 'antd'
+import { Alert, App, DatePicker, Form, Input, Modal, TimePicker } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { workoutApi, type WorkoutDetails } from '@/entities/workout'
-import { ApiError, errorMessage, rules } from '@/shared'
+import { atTime, conflictToField, rules, useAction } from '@/shared'
 
 interface FormValues {
   title: string
@@ -16,40 +15,23 @@ interface Props {
   open: boolean
   workout: WorkoutDetails
   onClose: () => void
-  onSaved: () => void
+  onSaved: (workout: WorkoutDetails) => void
 }
 
 export function EditWorkoutModal({ open, workout, onClose, onSaved }: Props) {
+  const { message } = App.useApp()
   const [form] = Form.useForm<FormValues>()
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string>()
-
-  const submit = async (values: FormValues) => {
-    const [from, to] = values.time
-    const start = values.date.hour(from.hour()).minute(from.minute()).second(0)
-    const end = values.date.hour(to.hour()).minute(to.minute()).second(0)
-    setSubmitting(true)
-    setError(undefined)
-    try {
-      await workoutApi.update(workout.id, {
-        title: values.title.trim(),
-        location: values.location?.trim() ?? '',
-        description: values.description?.trim() ?? '',
-        start: start.format(),
-        end: end.format(),
-      })
-      message.success('Тренировка обновлена')
-      onSaved()
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'time_conflict') {
-        form.setFields([{ name: 'time', errors: [e.message] }])
-      } else {
-        setError(errorMessage(e))
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const { run, pending, error, clearError } = useAction(async ({ title, date, time: [from, to], location, description }: FormValues) => {
+    const updated = await workoutApi.update(workout.id, {
+      title: title.trim(),
+      location: location?.trim() ?? '',
+      description: description?.trim() ?? '',
+      start: atTime(date, from),
+      end: atTime(date, to),
+    })
+    message.success('Тренировка обновлена')
+    onSaved(updated)
+  }, conflictToField(form, 'time'))
 
   return (
     <Modal
@@ -59,14 +41,15 @@ export function EditWorkoutModal({ open, workout, onClose, onSaved }: Props) {
       onOk={() => form.submit()}
       okText="Сохранить"
       cancelText="Отмена"
-      confirmLoading={submitting}
-      afterClose={() => setError(undefined)}
+      confirmLoading={pending}
+      destroyOnHidden
+      afterClose={clearError}
     >
       <Form
         form={form}
         layout="vertical"
-        onFinish={submit}
-        key={`${workout.id}-${workout.start}-${workout.end}-${workout.title}-${workout.location}-${workout.description}`}
+        onFinish={run}
+        preserve={false}
         initialValues={{
           title: workout.title,
           date: dayjs(workout.start),
@@ -82,19 +65,7 @@ export function EditWorkoutModal({ open, workout, onClose, onSaved }: Props) {
         <Form.Item label="Дата" name="date" rules={rules.required('Выберите дату')}>
           <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
         </Form.Item>
-        <Form.Item
-          label="Время"
-          name="time"
-          rules={[
-            ...rules.required('Укажите время начала и конца'),
-            {
-              validator: (_, value?: [Dayjs, Dayjs]) =>
-                !value || value[1].isAfter(value[0], 'minute')
-                  ? Promise.resolve()
-                  : Promise.reject(new Error('Конец должен быть позже начала')),
-            },
-          ]}
-        >
+        <Form.Item label="Время" name="time" rules={rules.timeRange}>
           <TimePicker.RangePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
         </Form.Item>
         <Form.Item label="Место" name="location" rules={rules.optionalText(255)}>

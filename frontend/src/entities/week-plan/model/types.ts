@@ -1,7 +1,7 @@
 export interface WeekPlanItem {
   id: number
-  weekday: number // 1 — понедельник ... 7 — воскресенье
-  startTime: string // HH:mm
+  weekday: number
+  startTime: string
   endTime: string
   title: string
 }
@@ -20,7 +20,7 @@ export interface SlotFormValues {
 }
 
 export interface ApplyPlanValues {
-  startDate: string // YYYY-MM-DD
+  startDate: string
   weeks: number
 }
 

@@ -1,6 +1,16 @@
 import type { Rule } from 'antd/es/form'
+import type { Dayjs } from 'dayjs'
 
 export const rules = {
+  timeRange: [
+    { required: true, message: 'Укажите время начала и конца' },
+    {
+      validator: (_, value?: [Dayjs, Dayjs]) =>
+        !value || value[1].isAfter(value[0], 'minute')
+          ? Promise.resolve()
+          : Promise.reject(new Error('Конец должен быть позже начала')),
+    },
+  ] as Rule[],
   text: (label: string, max = 255): Rule[] => [
     { required: true, whitespace: true, message: `Введите ${label}` },
     { max, message: `Не длиннее ${max} символов` },

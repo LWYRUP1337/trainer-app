@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Button, Card, Descriptions, Space } from 'antd'
 import dayjs from 'dayjs'
 import { useNavigate, useParams } from 'react-router-dom'
-import { workoutApi, type WorkoutDetails } from '@/entities/workout'
+import { workoutApi } from '@/entities/workout'
 import { AttendanceTable } from '@/features/attendance-mark'
 import { AddParticipantsModal } from '@/features/workout-participants'
 import { DeleteWorkoutButton } from '@/features/workout-delete'
@@ -13,11 +13,9 @@ export default function WorkoutDetailsPage() {
   const { id } = useParams()
   const workoutId = Number(id)
   const navigate = useNavigate()
-  const { data, loading, error, refetch } = useQuery(() => workoutApi.get(workoutId), [workoutId])
-  const [saved, setSaved] = useState<WorkoutDetails>()
+  const { data: workout, loading, error, refetch, setData } = useQuery(() => workoutApi.get(workoutId), [workoutId])
   const [editing, setEditing] = useState(false)
   const [adding, setAdding] = useState(false)
-  const workout = saved?.id === workoutId ? saved : data
 
   return (
     <>
@@ -46,16 +44,15 @@ export default function WorkoutDetailsPage() {
               </Descriptions>
             </Card>
             <Card title="Посещаемость">
-              <AttendanceTable workout={w} onSaved={setSaved} />
+              <AttendanceTable workout={w} onChanged={setData} />
             </Card>
             <EditWorkoutModal
               open={editing}
               workout={w}
               onClose={() => setEditing(false)}
-              onSaved={() => {
+              onSaved={(updated) => {
                 setEditing(false)
-                setSaved(undefined)
-                refetch()
+                setData(updated)
               }}
             />
             <AddParticipantsModal
@@ -64,7 +61,7 @@ export default function WorkoutDetailsPage() {
               onClose={() => setAdding(false)}
               onAdded={(updated) => {
                 setAdding(false)
-                setSaved(updated)
+                setData(updated)
               }}
             />
           </>

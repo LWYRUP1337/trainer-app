@@ -1,8 +1,8 @@
 import { Space, Switch, Tooltip, Typography } from 'antd'
 import { setSimulateFailure } from '@/shared'
 
-/** Демо-переключатель для проверки состояния ошибки (имитирует недоступный сервер). */
 export function FailureToggle() {
+  if (!import.meta.env.DEV) return null
   return (
     <Tooltip title="Демо: включите, чтобы увидеть состояние ошибки загрузки, затем нажмите «Повторить»">
       <Space size={8}>

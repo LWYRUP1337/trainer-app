@@ -1,6 +1,5 @@
 import dayjs from 'dayjs'
-import { ApiError, request } from '@/shared/api/client'
-import { db } from '@/shared/api/mockDb'
+import { ApiError, db, request } from '@/shared/api'
 import type { Injury, InjuryFormValues } from '../model/types'
 
 export const injuryApi = {

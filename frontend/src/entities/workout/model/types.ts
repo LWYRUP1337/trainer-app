@@ -14,7 +14,7 @@ export interface Workout {
   title: string
   description: string
   location: string
-  start: string // ISO с часовым поясом
+  start: string
   end: string
   participants: Participant[]
 }

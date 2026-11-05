@@ -1,33 +1,22 @@
-import { useState } from 'react'
-import { Alert, Form, Input, Modal, message } from 'antd'
+import { Alert, App, Form, Input, Modal } from 'antd'
 import { coachApi, type Coach, type CoachFormValues } from '@/entities/coach'
-import { errorMessage, rules } from '@/shared'
+import { rules, useAction } from '@/shared'
 
 interface Props {
   open: boolean
   coach: Coach
   onClose: () => void
-  onSaved: () => void
+  onSaved: (coach: Coach) => void
 }
 
 export function EditProfileModal({ open, coach, onClose, onSaved }: Props) {
+  const { message } = App.useApp()
   const [form] = Form.useForm<CoachFormValues>()
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string>()
-
-  const submit = async (values: CoachFormValues) => {
-    setSubmitting(true)
-    setError(undefined)
-    try {
-      await coachApi.update(values)
-      message.success('Профиль обновлён')
-      onSaved()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const { run, pending, error, clearError } = useAction(async (values: CoachFormValues) => {
+    const updated = await coachApi.update(values)
+    message.success('Профиль обновлён')
+    onSaved(updated)
+  })
 
   return (
     <Modal
@@ -37,13 +26,11 @@ export function EditProfileModal({ open, coach, onClose, onSaved }: Props) {
       onOk={() => form.submit()}
       okText="Сохранить"
       cancelText="Отмена"
-      confirmLoading={submitting}
-      afterClose={() => {
-        form.resetFields()
-        setError(undefined)
-      }}
+      confirmLoading={pending}
+      destroyOnHidden
+      afterClose={clearError}
     >
-      <Form form={form} layout="vertical" onFinish={submit} initialValues={coach} key={coach.fullName + coach.phone + coach.club}>
+      <Form form={form} layout="vertical" onFinish={run} initialValues={coach} preserve={false}>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
         <Form.Item label="Имя" name="fullName" rules={rules.text('имя')}>
           <Input />

@@ -1,34 +1,39 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { errorMessage } from './errors'
 
-interface QueryState<T> {
+interface QueryResult<T> {
+  key?: string
   data?: T
   error?: string
-  loading: boolean
 }
 
 export function useQuery<T>(fetcher: () => Promise<T>, deps: readonly unknown[]) {
-  const [state, setState] = useState<QueryState<T>>({ loading: true })
+  const [result, setResult] = useState<QueryResult<T>>({})
   const [nonce, setNonce] = useState(0)
   const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
+  const requestKey = `${JSON.stringify(deps)}#${nonce}`
+
+  useLayoutEffect(() => {
+    fetcherRef.current = fetcher
+  })
 
   useEffect(() => {
     let cancelled = false
-    setState((prev) => ({ data: prev.data, loading: true }))
     fetcherRef.current()
       .then((data) => {
-        if (!cancelled) setState({ data, loading: false })
+        if (!cancelled) setResult({ key: requestKey, data })
       })
       .catch((error: unknown) => {
-        if (!cancelled) setState({ loading: false, error: errorMessage(error) })
+        if (!cancelled) setResult({ key: requestKey, error: errorMessage(error) })
       })
     return () => {
       cancelled = true
     }
+  }, [requestKey])
 
-  }, [...deps, nonce])
-
+  const loading = result.key !== requestKey
   const refetch = useCallback(() => setNonce((n) => n + 1), [])
-  return { ...state, refetch }
+  const setData = useCallback((data: T) => setResult((prev) => ({ key: prev.key, data })), [])
+
+  return { data: result.data, error: loading ? undefined : result.error, loading, refetch, setData }
 }

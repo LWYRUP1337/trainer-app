@@ -1,6 +1,9 @@
-import dayjs from 'dayjs'
+import dayjs, { type Dayjs } from 'dayjs'
 
 export const DATE_API = 'YYYY-MM-DD'
+
+export const atTime = (date: Dayjs, time: Dayjs): string =>
+  date.hour(time.hour()).minute(time.minute()).second(0).millisecond(0).format()
 
 export const formatDate = (value: string | null | undefined) =>
   value ? dayjs(value).format('D MMMM YYYY') : '—'

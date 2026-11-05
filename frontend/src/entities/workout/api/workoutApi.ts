@@ -1,8 +1,6 @@
 import dayjs from 'dayjs'
-import { ApiError, request } from '@/shared/api/client'
-import { db } from '@/shared/api/mockDb'
-import type { Participant, Workout, WorkoutDetails, WorkoutFormValues } from '../model/types'
-import { WorkoutPatch } from '../model/types'
+import { ApiError, db, request } from '@/shared/api'
+import type { Participant, Workout, WorkoutDetails, WorkoutFormValues, WorkoutPatch } from '../model/types'
 
 function find(id: number): Workout {
   const workout = db.workouts.find((w) => w.id === id)
@@ -72,7 +70,6 @@ export const workoutApi = {
       return toDetails(workout)
     }, 250),
 
-
   update: (id: number, patch: WorkoutPatch) =>
     request<WorkoutDetails>(() => {
       const workout = find(id)
@@ -94,10 +91,9 @@ export const workoutApi = {
 
   remove: (id: number) =>
     request<void>(() => {
-      find(id) // если тренировки нет, будет ошибка «не найдена»
+      find(id)
       db.workouts = db.workouts.filter((w) => w.id !== id)
     }, 250),
-
 
   addParticipants: (id: number, athleteIds: number[]) =>
     request<WorkoutDetails>(() => {
@@ -110,7 +106,6 @@ export const workoutApi = {
       }
       return toDetails(workout)
     }, 250),
-    
 
   removeParticipant: (id: number, athleteId: number) =>
     request<WorkoutDetails>(() => {

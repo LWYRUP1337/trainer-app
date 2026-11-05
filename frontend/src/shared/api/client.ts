@@ -13,8 +13,6 @@ export const setSimulateFailure = (value: boolean) => {
   simulateFailure = value
 }
 
-export const clone = <T,>(value: T): T => structuredClone(value)
-
 export function request<T>(handler: () => T, delayMs = 150): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     window.setTimeout(() => {
@@ -23,7 +21,7 @@ export function request<T>(handler: () => T, delayMs = 150): Promise<T> {
         return
       }
       try {
-        resolve(clone(handler()))
+        resolve(structuredClone(handler()))
       } catch (error) {
         reject(error)
       }

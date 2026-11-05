@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Alert, Button, DatePicker, Form, InputNumber, List, Modal } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
 import { weekPlanApi, type ApplyPlanResult } from '@/entities/week-plan'
-import { DATE_API, errorMessage, rules } from '@/shared'
+import { DATE_API, rules, useAction } from '@/shared'
 
 interface FormValues {
   startDate: Dayjs
@@ -14,39 +14,24 @@ interface Props {
   onClose: () => void
 }
 
-const nextMonday = () => {
-  const today = dayjs()
-  const offset = (8 - (today.day() === 0 ? 7 : today.day())) % 7 || 7
-  return today.add(offset, 'day')
-}
+const nextMonday = () => dayjs().startOf('day').add(7 - ((dayjs().day() + 6) % 7), 'day')
 
 export function ApplyPlanModal({ open, onClose }: Props) {
   const [form] = Form.useForm<FormValues>()
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string>()
   const [result, setResult] = useState<ApplyPlanResult>()
-
-  const submit = async (values: FormValues) => {
-    setSubmitting(true)
-    setError(undefined)
-    try {
-      setResult(await weekPlanApi.apply({ startDate: values.startDate.format(DATE_API), weeks: values.weeks }))
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const { run, pending, error, clearError } = useAction(async (values: FormValues) => {
+    setResult(await weekPlanApi.apply({ startDate: values.startDate.format(DATE_API), weeks: values.weeks }))
+  })
 
   return (
     <Modal
       title="Применить шаблон недели"
       open={open}
       onCancel={onClose}
+      destroyOnHidden
       afterClose={() => {
         setResult(undefined)
-        setError(undefined)
-        form.resetFields()
+        clearError()
       }}
       footer={
         result ? (
@@ -55,10 +40,10 @@ export function ApplyPlanModal({ open, onClose }: Props) {
           </Button>
         ) : (
           [
-            <Button key="c" onClick={onClose}>
+            <Button key="cancel" onClick={onClose}>
               Отмена
             </Button>,
-            <Button key="o" type="primary" loading={submitting} onClick={() => form.submit()}>
+            <Button key="ok" type="primary" loading={pending} onClick={() => form.submit()}>
               Создать тренировки
             </Button>,
           ]
@@ -86,7 +71,7 @@ export function ApplyPlanModal({ open, onClose }: Props) {
           )}
         </div>
       ) : (
-        <Form form={form} layout="vertical" onFinish={submit} initialValues={{ weeks: 4, startDate: nextMonday() }}>
+        <Form form={form} layout="vertical" onFinish={run} initialValues={{ weeks: 4, startDate: nextMonday() }} preserve={false}>
           {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
           <Form.Item label="Начиная с даты" name="startDate" rules={rules.required('Выберите дату')}>
             <DatePicker style={{ width: '100%' }} format="DD.MM.YYYY" />
