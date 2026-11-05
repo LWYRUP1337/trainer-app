@@ -1,11 +1,68 @@
 import dayjs from 'dayjs'
-import type { Athlete } from '@/entities/athlete/model/types'
-import type { Coach } from '@/entities/coach/model/types'
-import type { Injury } from '@/entities/injury/model/types'
-import type { WeekPlan } from '@/entities/week-plan/model/types'
-import type { AttendanceStatus, Workout } from '@/entities/workout/model/types'
 
-const athletes: Athlete[] = [
+type SeverityValue = 'light' | 'medium' | 'severe'
+type AttendanceValue = 'planned' | 'present' | 'absent' | 'excused'
+
+interface CoachRow {
+  fullName: string
+  email: string
+  phone: string
+  club: string
+}
+
+interface AthleteRow {
+  id: number
+  fullName: string
+  birthDate: string | null
+  heightCm: number | null
+  weightKg: number | null
+  phone: string
+  isActive: boolean
+  notes: string
+  nutritionPlan: string
+}
+
+interface InjuryRow {
+  id: number
+  athleteId: number
+  title: string
+  bodyPart: string
+  severity: SeverityValue
+  startedAt: string
+  recoveredAt: string | null
+  notes: string
+}
+
+interface ParticipantRow {
+  athleteId: number
+  status: AttendanceValue
+}
+
+interface WorkoutRow {
+  id: number
+  title: string
+  description: string
+  location: string
+  start: string
+  end: string
+  participants: ParticipantRow[]
+}
+
+interface WeekPlanItemRow {
+  id: number
+  weekday: number
+  startTime: string
+  endTime: string
+  title: string
+}
+
+interface WeekPlanRow {
+  id: number
+  title: string
+  items: WeekPlanItemRow[]
+}
+
+const athletes: AthleteRow[] = [
   { id: 1, fullName: 'Мария Орлова', birthDate: '2003-04-12', heightCm: 171, weightKg: 62, phone: '+7 901 111-22-33', isActive: true, notes: 'Бегунья на средние дистанции, цель — 800 м до 2:05.', nutritionPlan: 'Завтрак: овсянка, яйца, фрукты.\nОбед: курица, гречка, овощи.\nПеред тренировкой: банан и орехи.\nВоды не менее 2 л в день.' },
   { id: 2, fullName: 'Игорь Беляев', birthDate: '2001-09-30', heightCm: 184, weightKg: 81, phone: '+7 902 222-33-44', isActive: true, notes: 'Набор мышечной массы, упор на силовые.', nutritionPlan: 'Белок 2 г на кг веса.\n5 приёмов пищи в день.\nПосле тренировки — творог и рис.' },
   { id: 3, fullName: 'Анна Соколова', birthDate: '2004-01-18', heightCm: 165, weightKg: 56, phone: '+7 903 333-44-55', isActive: true, notes: 'Возвращается после травмы колена.', nutritionPlan: 'Больше омега-3 и кальция.\nУжин не позже 20:00.' },
@@ -14,14 +71,14 @@ const athletes: Athlete[] = [
   { id: 6, fullName: 'Павел Крылов', birthDate: '1999-02-14', heightCm: 190, weightKg: 88, phone: '+7 906 666-77-88', isActive: false, notes: 'В архиве: завершил подготовку.', nutritionPlan: '' },
 ]
 
-const injuries: Injury[] = [
+const injuries: InjuryRow[] = [
   { id: 1, athleteId: 3, title: 'Растяжение связок колена', bodyPart: 'Колено', severity: 'medium', startedAt: '2026-09-10', recoveredAt: null, notes: '' },
   { id: 2, athleteId: 2, title: 'Ушиб плеча', bodyPart: 'Плечо', severity: 'light', startedAt: '2026-08-02', recoveredAt: '2026-08-20', notes: '' },
   { id: 3, athleteId: 1, title: 'Воспаление ахиллова сухожилия', bodyPart: 'Голеностоп', severity: 'severe', startedAt: '2026-10-01', recoveredAt: null, notes: 'Нужна консультация врача.' },
   { id: 4, athleteId: 4, title: 'Мышечный спазм', bodyPart: 'Бедро', severity: 'light', startedAt: '2026-07-14', recoveredAt: '2026-07-21', notes: '' },
 ]
 
-const weekPlan: WeekPlan = {
+const weekPlan: WeekPlanRow = {
   id: 1,
   title: 'Базовая неделя',
   items: [
@@ -33,8 +90,8 @@ const weekPlan: WeekPlan = {
   ],
 }
 
-function buildWorkouts(): Workout[] {
-  const result: Workout[] = []
+function buildWorkouts(): WorkoutRow[] {
+  const result: WorkoutRow[] = []
   const now = dayjs()
   const from = now.subtract(1, 'month').startOf('month')
   const to = now.add(1, 'month').endOf('month')
@@ -57,7 +114,7 @@ function buildWorkouts(): Workout[] {
       start: start.format(),
       end: end.format(),
       participants: group.map((athleteId, i) => {
-        let status: AttendanceStatus = 'planned'
+        let status: AttendanceValue = 'planned'
         if (past) status = (id + i) % 5 === 0 ? 'absent' : (id + i) % 7 === 0 ? 'excused' : 'present'
         return { athleteId, status }
       }),
@@ -69,8 +126,10 @@ function buildWorkouts(): Workout[] {
 
 const workouts = buildWorkouts()
 
+const coach: CoachRow = { fullName: 'Klaus', email: 'coach@example.com', phone: '+7 900 123-45-67', club: 'bayern' }
+
 export const db = {
-  coach: { fullName: 'Klaus', email: 'coach@example.com', phone: '+7 900 123-45-67', club: 'bayern' } as Coach,
+  coach,
   athletes,
   injuries,
   weekPlan,

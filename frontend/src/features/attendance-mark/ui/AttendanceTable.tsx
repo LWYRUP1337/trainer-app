@@ -1,62 +1,43 @@
-import { useEffect, useState } from 'react'
-import { Alert, Button, Popconfirm, Progress, Segmented, Space, Table, Tag, message } from 'antd'
+import { useState } from 'react'
+import { Alert, App, Button, Popconfirm, Progress, Segmented, Space, Table, Tag } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
 import { workoutApi, statusLabel, type AttendanceStatus, type ParticipantView, type WorkoutDetails } from '@/entities/workout'
-import { errorMessage, routes } from '@/shared'
+import { errorMessage, routes, useAction } from '@/shared'
 
 interface Props {
   workout: WorkoutDetails
-  /** Вызывается после сохранения отметок и после удаления участника: передаёт обновлённую тренировку */
-  onSaved: (workout: WorkoutDetails) => void
+  onChanged: (workout: WorkoutDetails) => void
 }
 
-export function AttendanceTable({ workout, onSaved }: Props) {
-  const [rows, setRows] = useState<ParticipantView[]>(workout.participants)
-  const [saving, setSaving] = useState(false)
-  const [error, setError] = useState<string>()
+const statuses: AttendanceStatus[] = ['planned', 'present', 'absent', 'excused']
 
-  // Состав изменился (добавили или убрали спортсмена): берём новый список,
-  // но сохраняем уже выставленные, ещё не сохранённые отметки остальных.
-  useEffect(() => {
-    setRows((prev) =>
-      workout.participants.map((p) => ({
-        ...p,
-        status: prev.find((r) => r.athleteId === p.athleteId)?.status ?? p.status,
-      })),
-    )
-  }, [workout])
-
-  const dirty = rows.some(
-    (r) => r.status !== workout.participants.find((p) => p.athleteId === r.athleteId)?.status,
-  )
+export function AttendanceTable({ workout, onChanged }: Props) {
+  const { message } = App.useApp()
+  const [draft, setDraft] = useState<Record<number, AttendanceStatus>>({})
+  const rows = workout.participants.map((p) => ({ ...p, status: draft[p.athleteId] ?? p.status }))
+  const dirty = rows.some((r, i) => r.status !== workout.participants[i].status)
   const present = rows.filter((r) => r.status === 'present').length
   const marked = rows.filter((r) => r.status !== 'planned').length
-  const setStatus = (athleteId: number, status: AttendanceStatus) =>
-    setRows((prev) => prev.map((r) => (r.athleteId === athleteId ? { ...r, status } : r)))
 
-  const save = async () => {
-    setSaving(true)
-    setError(undefined)
-    try {
-      const updated = await workoutApi.saveAttendance(
-        workout.id,
-        rows.map(({ athleteId, status }) => ({ athleteId, status })),
-      )
-      message.success('Посещаемость сохранена')
-      onSaved(updated)
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setSaving(false)
-    }
-  }
+  const setStatus = (athleteId: number, status: AttendanceStatus) => setDraft((prev) => ({ ...prev, [athleteId]: status }))
+  const markAllPresent = () => setDraft(Object.fromEntries(rows.map((r) => [r.athleteId, 'present' as const])))
+
+  const save = useAction(async () => {
+    const updated = await workoutApi.saveAttendance(
+      workout.id,
+      rows.map(({ athleteId, status }) => ({ athleteId, status })),
+    )
+    message.success('Посещаемость сохранена')
+    setDraft({})
+    onChanged(updated)
+  })
 
   const removeParticipant = async (athleteId: number) => {
     try {
       const updated = await workoutApi.removeParticipant(workout.id, athleteId)
       message.success('Спортсмен убран из тренировки')
-      onSaved(updated)
+      onChanged(updated)
     } catch (e) {
       message.error(errorMessage(e))
     }
@@ -66,16 +47,18 @@ export function AttendanceTable({ workout, onSaved }: Props) {
     <Space direction="vertical" style={{ width: '100%' }} size="middle">
       <Space wrap>
         <Tag color="purple">Был: {present}</Tag>
-        <Tag>Отмечено {marked} из {rows.length}</Tag>
-        <Button size="small" onClick={() => setRows((prev) => prev.map((r) => ({ ...r, status: 'present' as const })))}>
+        <Tag>
+          Отмечено {marked} из {rows.length}
+        </Tag>
+        <Button size="small" onClick={markAllPresent} disabled={rows.length === 0}>
           Отметить всех: был
         </Button>
-        <Button size="small" onClick={() => setRows((prev) => prev.map((r) => ({ ...r, status: 'planned' as const })))}>
-          Сбросить
+        <Button size="small" onClick={() => setDraft({})} disabled={!dirty}>
+          Отменить изменения
         </Button>
       </Space>
       <Progress percent={rows.length ? Math.round((marked * 100) / rows.length) : 0} size="small" format={(p) => `${p}% отмечено`} />
-      {error && <Alert type="error" showIcon message={error} />}
+      {save.error && <Alert type="error" showIcon message={save.error} />}
       <Table<ParticipantView>
         rowKey="athleteId"
         dataSource={rows}
@@ -90,10 +73,7 @@ export function AttendanceTable({ workout, onSaved }: Props) {
               <Segmented<AttendanceStatus>
                 value={r.status}
                 onChange={(v) => setStatus(r.athleteId, v)}
-                options={(['planned', 'present', 'absent', 'excused'] as const).map((s) => ({
-                  value: s,
-                  label: s === 'excused' ? 'Уваж.' : statusLabel[s],
-                }))}
+                options={statuses.map((s) => ({ value: s, label: s === 'excused' ? 'Уваж.' : statusLabel[s] }))}
               />
             ),
           },
@@ -116,7 +96,7 @@ export function AttendanceTable({ workout, onSaved }: Props) {
         ]}
       />
       <Space>
-        <Button type="primary" onClick={save} loading={saving} disabled={!dirty}>
+        <Button type="primary" onClick={() => save.run()} loading={save.pending} disabled={!dirty}>
           Сохранить посещаемость
         </Button>
         {dirty && <Tag color="default">Есть несохранённые изменения</Tag>}

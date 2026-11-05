@@ -8,11 +8,10 @@ export interface Athlete {
   isActive: boolean
   notes: string
   nutritionPlan: string
-}
-
-export interface AthleteListItem extends Athlete {
   hasActiveInjury: boolean
 }
+
+export type AthletePatch = Partial<Pick<Athlete, 'nutritionPlan' | 'isActive'>>
 
 export interface AthleteFormValues {
   fullName: string

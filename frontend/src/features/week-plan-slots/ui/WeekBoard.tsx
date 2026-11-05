@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Alert, Button, Form, Input, List, Modal, Space, Tag, TimePicker, message } from 'antd'
+import { Alert, App, Button, Form, Input, List, Modal, Space, Tag, TimePicker } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import type { Dayjs } from 'dayjs'
 import { weekPlanApi, type WeekPlan } from '@/entities/week-plan'
-import { ApiError, errorMessage, rules, weekdayNames } from '@/shared'
+import { conflictToField, errorMessage, rules, useAction, weekdayNames } from '@/shared'
 
 interface SlotValues {
   title: string
@@ -12,46 +12,27 @@ interface SlotValues {
 
 interface Props {
   plan: WeekPlan
-  onChanged: () => void
+  onChanged: (plan: WeekPlan) => void
 }
 
-/** Недельная сетка: слоты по дням, добавление и удаление. */
 export function WeekBoard({ plan, onChanged }: Props) {
+  const { message } = App.useApp()
   const [weekday, setWeekday] = useState<number>()
   const [form] = Form.useForm<SlotValues>()
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState<string>()
+  const days = weekdayNames.map((name, i) => ({ name, day: i + 1, items: plan.items.filter((p) => p.weekday === i + 1) }))
 
-  const add = async (values: SlotValues) => {
+  const add = useAction(async ({ title, time: [from, to] }: SlotValues) => {
     if (!weekday) return
-    setSubmitting(true)
-    setError(undefined)
-    try {
-      await weekPlanApi.addSlot({
-        weekday,
-        title: values.title,
-        startTime: values.time[0].format('HH:mm'),
-        endTime: values.time[1].format('HH:mm'),
-      })
-      message.success('Слот добавлен')
-      setWeekday(undefined)
-      onChanged()
-    } catch (e) {
-      if (e instanceof ApiError && e.code === 'time_conflict') {
-        form.setFields([{ name: 'time', errors: [e.message] }])
-      } else {
-        setError(errorMessage(e))
-      }
-    } finally {
-      setSubmitting(false)
-    }
-  }
+    const updated = await weekPlanApi.addSlot({ weekday, title, startTime: from.format('HH:mm'), endTime: to.format('HH:mm') })
+    message.success('Слот добавлен')
+    setWeekday(undefined)
+    onChanged(updated)
+  }, conflictToField(form, 'time'))
 
   const remove = async (id: number) => {
     try {
-      await weekPlanApi.removeSlot(id)
+      onChanged(await weekPlanApi.removeSlot(id))
       message.success('Слот удалён')
-      onChanged()
     } catch (e) {
       message.error(errorMessage(e))
     }
@@ -60,7 +41,7 @@ export function WeekBoard({ plan, onChanged }: Props) {
   return (
     <>
       <List
-        dataSource={weekdayNames.map((name, i) => ({ name, day: i + 1, items: plan.items.filter((p) => p.weekday === i + 1) }))}
+        dataSource={days}
         renderItem={(d) => (
           <List.Item
             actions={[
@@ -104,30 +85,16 @@ export function WeekBoard({ plan, onChanged }: Props) {
         onOk={() => form.submit()}
         okText="Добавить"
         cancelText="Отмена"
-        confirmLoading={submitting}
-        afterClose={() => {
-          form.resetFields()
-          setError(undefined)
-        }}
+        confirmLoading={add.pending}
+        destroyOnHidden
+        afterClose={add.clearError}
       >
-        <Form form={form} layout="vertical" onFinish={add}>
-          {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
+        <Form form={form} layout="vertical" onFinish={add.run} preserve={false}>
+          {add.error && <Alert type="error" showIcon message={add.error} style={{ marginBottom: 16 }} />}
           <Form.Item label="Название" name="title" rules={rules.text('название')}>
             <Input autoFocus />
           </Form.Item>
-          <Form.Item
-            label="Время"
-            name="time"
-            rules={[
-              ...rules.required('Укажите время начала и конца'),
-              {
-                validator: (_, value?: [Dayjs, Dayjs]) =>
-                  !value || value[1].isAfter(value[0], 'minute')
-                    ? Promise.resolve()
-                    : Promise.reject(new Error('Конец должен быть позже начала')),
-              },
-            ]}
-          >
+          <Form.Item label="Время" name="time" rules={rules.timeRange}>
             <TimePicker.RangePicker format="HH:mm" minuteStep={5} style={{ width: '100%' }} />
           </Form.Item>
         </Form>

@@ -36,7 +36,6 @@ body {
 .cal-cell { list-style: none; margin: 0; padding: 0; }
 .cal-cell li { font-size: 12px; line-height: 1.5; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-
 @keyframes page-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
 @keyframes row-flash { from { background-color: rgba(255, 255, 255, 0.28); } to { background-color: transparent; } }
@@ -57,16 +56,6 @@ body {
   .page-enter, .fade-in, .row-new > td, .expandable, .hover-card { animation: none !important; transition: none !important; }
 }
 
-.ant-btn-primary:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled) { background: #fff; color: #1b1647; }
-.ant-btn-primary:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled):hover { background: #ebe9ff; color: #1b1647; }
-.ant-btn-primary:not(.ant-btn-dangerous):not(:disabled):not(.ant-btn-disabled):active { background: #d8d4ff; color: #1b1647; }
+.ant-segmented .ant-segmented-item-selected { font-weight: 600; }
 
-
-.ant-segmented .ant-segmented-thumb { background: #fff; }
-.ant-segmented .ant-segmented-item { color: rgba(255, 255, 255, 0.85); }
-.ant-segmented .ant-segmented-item-selected,
-.ant-segmented .ant-segmented-item-selected .ant-segmented-item-label { color: #1b1647 !important; font-weight: 600; }
-
-
-.ant-menu-dark .ant-menu-item-selected,
-.ant-menu-dark .ant-menu-item-selected a { color: #1b1647 !important; }
+.pick-tag { padding: 6px 14px; font-size: 14px; border: 1px solid rgba(255, 255, 255, 0.3); }

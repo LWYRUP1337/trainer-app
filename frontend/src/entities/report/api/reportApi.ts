@@ -1,6 +1,5 @@
 import dayjs, { type Dayjs } from 'dayjs'
-import { request } from '@/shared/api/client'
-import { db } from '@/shared/api/mockDb'
+import { db, request } from '@/shared/api'
 import type { AthleteAttendance, AttendanceRow, DashboardStats, SummaryReport } from '../model/types'
 
 const percent = (present: number, total: number) => (total ? Math.round((present * 100) / total) : 0)

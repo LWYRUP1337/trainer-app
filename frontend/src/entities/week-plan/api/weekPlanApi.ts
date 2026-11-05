@@ -1,6 +1,5 @@
 import dayjs from 'dayjs'
-import { ApiError, request } from '@/shared/api/client'
-import { db } from '@/shared/api/mockDb'
+import { ApiError, db, request } from '@/shared/api'
 import type { ApplyPlanResult, ApplyPlanValues, SlotFormValues, WeekPlan } from '../model/types'
 
 const sorted = (plan: WeekPlan): WeekPlan => ({
@@ -27,7 +26,6 @@ export const weekPlanApi = {
       return sorted(db.weekPlan)
     }, 150),
 
-  /** Создаёт тренировки по шаблону на N недель; пересекающиеся пропускает. */
   apply: (values: ApplyPlanValues) =>
     request<ApplyPlanResult>(() => {
       if (db.weekPlan.items.length === 0) throw new ApiError('В плане недели нет тренировок')

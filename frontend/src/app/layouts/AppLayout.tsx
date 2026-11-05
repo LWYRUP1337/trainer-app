@@ -1,4 +1,5 @@
-import { Button, Dropdown, Layout, Menu, Space, Typography } from 'antd'
+import { Suspense } from 'react'
+import { Button, Dropdown, Layout, Menu, Skeleton, Space, Typography } from 'antd'
 import {
   BarChartOutlined,
   CalendarOutlined,
@@ -59,7 +60,9 @@ export function AppLayout() {
         </Layout.Header>
         <Layout.Content style={{ padding: 24 }}>
           <div className="page page-enter" key={pathname}>
-            <Outlet />
+            <Suspense fallback={<Skeleton active paragraph={{ rows: 6 }} />}>
+              <Outlet />
+            </Suspense>
           </div>
         </Layout.Content>
       </Layout>

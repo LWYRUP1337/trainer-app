@@ -1,9 +1,7 @@
 import { theme as antdTheme, type ThemeConfig } from 'antd'
 
-
 const ink = '#1b1647'
 const glass = 'rgba(255, 255, 255, 0.08)'
-const line = 'rgba(255, 255, 255, 0.16)'
 
 export const theme: ThemeConfig = {
   algorithm: antdTheme.darkAlgorithm,
@@ -15,7 +13,6 @@ export const theme: ThemeConfig = {
     colorError: '#ff8590',
     colorLink: '#cfcaff',
     colorLinkHover: '#ffffff',
-
     colorTextLightSolid: ink,
 
     colorBgLayout: 'transparent',
@@ -43,8 +40,8 @@ export const theme: ThemeConfig = {
       bodyBg: 'transparent',
       headerBg: 'rgba(255, 255, 255, 0.06)',
       siderBg: 'transparent',
-      zeroTriggerBg: 'rgba(255, 255, 255, 0.25)',
-      zeroTriggerColor: '#ffffff',
+      triggerBg: 'rgba(255, 255, 255, 0.25)',
+      triggerColor: '#ffffff',
     },
     Menu: {
       darkItemBg: 'transparent',
@@ -105,8 +102,6 @@ export const theme: ThemeConfig = {
     },
     Descriptions: { labelBg: 'rgba(255, 255, 255, 0.07)' },
     Modal: { contentBg: '#272070', headerBg: '#272070' },
-    Tooltip: { colorTextLightSolid: '#ffffff' }, 
+    Tooltip: { colorTextLightSolid: '#ffffff' },
   },
 }
-
-export const glassLine = line

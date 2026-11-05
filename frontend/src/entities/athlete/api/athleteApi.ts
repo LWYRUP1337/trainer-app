@@ -1,8 +1,7 @@
-import { ApiError, request } from '@/shared/api/client'
-import { db } from '@/shared/api/mockDb'
-import type { Athlete, AthleteFilter, AthleteFormValues, AthleteListItem } from '../model/types'
+import { ApiError, db, request } from '@/shared/api'
+import type { Athlete, AthleteFilter, AthleteFormValues, AthletePatch } from '../model/types'
 
-function find(id: number): Athlete {
+function find(id: number) {
   const athlete = db.athletes.find((a) => a.id === id)
   if (!athlete) throw new ApiError('Спортсмен не найден', 'not_found')
   return athlete
@@ -11,26 +10,31 @@ function find(id: number): Athlete {
 const hasActiveInjury = (athleteId: number) =>
   db.injuries.some((i) => i.athleteId === athleteId && i.recoveredAt === null)
 
+const withStatus = (athlete: Omit<Athlete, 'hasActiveInjury'>): Athlete => ({
+  ...athlete,
+  hasActiveInjury: hasActiveInjury(athlete.id),
+})
+
 export const athleteApi = {
   list: (params: { search: string; filter: AthleteFilter }) =>
-    request<AthleteListItem[]>(() => {
+    request<Athlete[]>(() => {
       const query = params.search.trim().toLowerCase()
       return db.athletes
+        .map(withStatus)
         .filter((a) => !query || a.fullName.toLowerCase().includes(query))
         .filter((a) => {
           if (params.filter === 'active') return a.isActive
-          if (params.filter === 'injured') return hasActiveInjury(a.id)
+          if (params.filter === 'injured') return a.hasActiveInjury
           return true
         })
-        .map((a) => ({ ...a, hasActiveInjury: hasActiveInjury(a.id) }))
         .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
     }),
 
-  get: (id: number) => request<Athlete>(() => find(id)),
+  get: (id: number) => request<Athlete>(() => withStatus(find(id))),
 
   create: (values: AthleteFormValues) =>
     request<Athlete>(() => {
-      const athlete: Athlete = {
+      const athlete = {
         id: db.seq.athlete++,
         fullName: values.fullName.trim(),
         birthDate: values.birthDate ?? null,
@@ -42,11 +46,10 @@ export const athleteApi = {
         nutritionPlan: '',
       }
       db.athletes.push(athlete)
-      return athlete
+      return withStatus(athlete)
     }, 250),
 
-  update: (id: number, patch: Partial<Omit<Athlete, 'id'>>) =>
-    request<Athlete>(() => Object.assign(find(id), patch), 250),
+  update: (id: number, patch: AthletePatch) => request<Athlete>(() => withStatus(Object.assign(find(id), patch)), 250),
 
   remove: (id: number) =>
     request<void>(() => {

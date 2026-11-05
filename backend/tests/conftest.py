@@ -8,6 +8,7 @@ if not TEST_DB:
 os.environ["DATABASE_URL"] = TEST_DB
 os.environ.setdefault("SECRET_KEY", "test-secret-key-test-secret-key-1234")
 os.environ["DEFAULT_TIMEZONE"] = "UTC"
+os.environ["REFRESH_COOKIE_SECURE"] = "false"
 
 from fastapi.testclient import TestClient  # noqa: E402
 from sqlalchemy import text  # noqa: E402

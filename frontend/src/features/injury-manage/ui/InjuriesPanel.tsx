@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import { Alert, Button, DatePicker, Form, Input, Popconfirm, Select, Space, Table, Tag, message } from 'antd'
+import { Alert, App, Button, DatePicker, Form, Input, Popconfirm, Select, Space, Table, Tag } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import dayjs, { type Dayjs } from 'dayjs'
 import { injuryApi, SeverityTag, severityLabel, type Injury, type Severity } from '@/entities/injury'
-import { AsyncState, DATE_API, Expandable, errorMessage, formatDate, rules, useQuery } from '@/shared'
+import { AsyncState, DATE_API, Expandable, errorMessage, formatDate, rules, useAction, useQuery } from '@/shared'
 
 interface FormValues {
   title: string
@@ -13,37 +13,38 @@ interface FormValues {
   notes?: string
 }
 
-/** Список травм спортсмена + встроенная форма добавления. */
-export function InjuriesPanel({ athleteId }: { athleteId: number }) {
+const severityOptions = (Object.keys(severityLabel) as Severity[]).map((s) => ({ value: s, label: severityLabel[s] }))
+
+interface Props {
+  athleteId: number
+  onChanged: () => void
+}
+
+export function InjuriesPanel({ athleteId, onChanged }: Props) {
+  const { message } = App.useApp()
   const { data, loading, error, refetch } = useQuery(() => injuryApi.list(athleteId), [athleteId])
+  const reload = () => {
+    refetch()
+    onChanged()
+  }
   const [formOpen, setFormOpen] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [formError, setFormError] = useState<string>()
   const [newId, setNewId] = useState<number>()
   const [form] = Form.useForm<FormValues>()
 
-  const add = async (values: FormValues) => {
-    setSubmitting(true)
-    setFormError(undefined)
-    try {
-      const injury = await injuryApi.create(athleteId, { ...values, startedAt: values.startedAt.format(DATE_API) })
-      message.success('Травма добавлена')
-      form.resetFields()
-      setFormOpen(false)
-      setNewId(injury.id)
-      refetch()
-    } catch (e) {
-      setFormError(errorMessage(e))
-    } finally {
-      setSubmitting(false)
-    }
-  }
+  const add = useAction(async (values: FormValues) => {
+    const injury = await injuryApi.create(athleteId, { ...values, startedAt: values.startedAt.format(DATE_API) })
+    message.success('Травма добавлена')
+    form.resetFields()
+    setFormOpen(false)
+    setNewId(injury.id)
+    reload()
+  })
 
   const act = async (action: () => Promise<unknown>, success: string) => {
     try {
       await action()
       message.success(success)
-      refetch()
+      reload()
     } catch (e) {
       message.error(errorMessage(e))
     }
@@ -59,33 +60,30 @@ export function InjuriesPanel({ athleteId }: { athleteId: number }) {
         <Form
           form={form}
           layout="vertical"
-          onFinish={add}
+          onFinish={add.run}
           initialValues={{ severity: 'light', startedAt: dayjs() }}
           style={{ padding: '4px 4px 16px' }}
         >
-          {formError && <Alert type="error" showIcon message={formError} style={{ marginBottom: 16 }} />}
+          {add.error && <Alert type="error" showIcon message={add.error} style={{ marginBottom: 16 }} />}
           <Space wrap align="start" size="large">
             <Form.Item label="Название" name="title" rules={rules.text('название травмы')}>
-              <Input style={{ width: 260 }} tabIndex={formOpen ? 0 : -1} />
+              <Input style={{ width: 260 }} />
             </Form.Item>
             <Form.Item label="Область тела" name="bodyPart" rules={rules.text('область', 100)}>
-              <Input style={{ width: 180 }} tabIndex={formOpen ? 0 : -1} />
+              <Input style={{ width: 180 }} />
             </Form.Item>
             <Form.Item label="Тяжесть" name="severity" rules={rules.required('Выберите тяжесть')}>
-              <Select
-                style={{ width: 140 }}
-                options={(Object.keys(severityLabel) as Severity[]).map((s) => ({ value: s, label: severityLabel[s] }))}
-              />
+              <Select style={{ width: 140 }} options={severityOptions} />
             </Form.Item>
             <Form.Item label="Дата травмы" name="startedAt" rules={rules.required('Укажите дату')}>
               <DatePicker format="DD.MM.YYYY" disabledDate={(d) => d.isAfter(dayjs())} />
             </Form.Item>
           </Space>
           <Form.Item label="Заметки" name="notes" rules={rules.optionalText(5000)}>
-            <Input.TextArea rows={2} tabIndex={formOpen ? 0 : -1} />
+            <Input.TextArea rows={2} />
           </Form.Item>
           <Space>
-            <Button type="primary" htmlType="submit" loading={submitting}>
+            <Button type="primary" htmlType="submit" loading={add.pending}>
               Сохранить травму
             </Button>
             <Button onClick={() => setFormOpen(false)}>Отмена</Button>
@@ -116,18 +114,33 @@ export function InjuriesPanel({ athleteId }: { athleteId: number }) {
               {
                 title: 'Статус',
                 render: (_, r) =>
-                  r.recoveredAt ? <Tag color="#9fd7ff">Восстановлен {dayjs(r.recoveredAt).format('DD.MM')}</Tag> : <Tag color="#ffcbbe">Активна</Tag>,
+                  r.recoveredAt ? (
+                    <Tag color="#9fd7ff">Восстановлен {dayjs(r.recoveredAt).format('DD.MM')}</Tag>
+                  ) : (
+                    <Tag color="#ffcbbe">Активна</Tag>
+                  ),
               },
               {
                 title: '',
                 render: (_, r) => (
                   <Space>
                     {!r.recoveredAt && (
-                      <Popconfirm title="Отметить, что спортсмен восстановился?" okText="Да" cancelText="Нет" onConfirm={() => act(() => injuryApi.markRecovered(r.id), 'Травма закрыта')}>
+                      <Popconfirm
+                        title="Отметить, что спортсмен восстановился?"
+                        okText="Да"
+                        cancelText="Нет"
+                        onConfirm={() => act(() => injuryApi.markRecovered(r.id), 'Травма закрыта')}
+                      >
                         <Button size="small">Выздоровел</Button>
                       </Popconfirm>
                     )}
-                    <Popconfirm title="Удалить запись о травме?" okText="Удалить" cancelText="Отмена" okButtonProps={{ danger: true }} onConfirm={() => act(() => injuryApi.remove(r.id), 'Запись удалена')}>
+                    <Popconfirm
+                      title="Удалить запись о травме?"
+                      okText="Удалить"
+                      cancelText="Отмена"
+                      okButtonProps={{ danger: true }}
+                      onConfirm={() => act(() => injuryApi.remove(r.id), 'Запись удалена')}
+                    >
                       <Button size="small" danger>
                         Удалить
                       </Button>

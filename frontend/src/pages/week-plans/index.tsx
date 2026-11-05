@@ -6,7 +6,7 @@ import { WeekBoard } from '@/features/week-plan-slots'
 import { AsyncState, PageHeader, useQuery } from '@/shared'
 
 export default function WeekPlansPage() {
-  const { data, loading, error, refetch } = useQuery(() => weekPlanApi.get(), [])
+  const { data, loading, error, refetch, setData } = useQuery(() => weekPlanApi.get(), [])
   const [applying, setApplying] = useState(false)
 
   return (
@@ -24,7 +24,7 @@ export default function WeekPlansPage() {
       </Typography.Paragraph>
       <Card>
         <AsyncState loading={loading} error={error} data={data} onRetry={refetch}>
-          {(plan) => <WeekBoard plan={plan} onChanged={refetch} />}
+          {(plan) => <WeekBoard plan={plan} onChanged={setData} />}
         </AsyncState>
       </Card>
       <ApplyPlanModal open={applying} onClose={() => setApplying(false)} />

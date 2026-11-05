@@ -1,4 +1,4 @@
-import { Button, Card, Descriptions, Popconfirm, Progress, Space, Table, Tabs, Typography, message } from 'antd'
+import { App, Button, Card, Descriptions, Popconfirm, Progress, Space, Table, Tabs, Typography } from 'antd'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import dayjs from 'dayjs'
 import { athleteApi, AthleteStatusTags } from '@/entities/athlete'
@@ -22,7 +22,9 @@ function AttendanceTab({ athleteId }: { athleteId: number }) {
       {(d) => (
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
           <div>
-            <Typography.Text>Посещаемость: {d.present} из {d.total} тренировок</Typography.Text>
+            <Typography.Text>
+              Посещаемость: {d.present} из {d.total} тренировок
+            </Typography.Text>
             <Progress percent={d.percent} />
           </div>
           <Table
@@ -44,17 +46,17 @@ function AttendanceTab({ athleteId }: { athleteId: number }) {
 }
 
 export default function AthleteDetailsPage() {
+  const { message } = App.useApp()
   const { id } = useParams()
   const athleteId = Number(id)
   const navigate = useNavigate()
-  const { data: athlete, loading, error, refetch } = useQuery(() => athleteApi.get(athleteId), [athleteId])
+  const { data: athlete, loading, error, refetch, setData } = useQuery(() => athleteApi.get(athleteId), [athleteId])
 
   const toggleArchive = async () => {
     if (!athlete) return
     try {
-      await athleteApi.update(athlete.id, { isActive: !athlete.isActive })
+      setData(await athleteApi.update(athlete.id, { isActive: !athlete.isActive }))
       message.success(athlete.isActive ? 'Спортсмен перенесён в архив' : 'Спортсмен возвращён в активные')
-      refetch()
     } catch (e) {
       message.error(errorMessage(e))
     }
@@ -107,17 +109,21 @@ export default function AthleteDetailsPage() {
                       <Descriptions.Item label="Телефон">{a.phone || '—'}</Descriptions.Item>
                       <Descriptions.Item label="Рост">{a.heightCm ? `${a.heightCm} см` : '—'}</Descriptions.Item>
                       <Descriptions.Item label="Вес">{a.weightKg ? `${a.weightKg} кг` : '—'}</Descriptions.Item>
-                      <Descriptions.Item label="Статус"><AthleteStatusTags isActive={a.isActive} hasActiveInjury={false} /></Descriptions.Item>
-                      <Descriptions.Item label="Заметки" span={2}>{a.notes || '—'}</Descriptions.Item>
+                      <Descriptions.Item label="Статус" span="filled">
+                        <AthleteStatusTags isActive={a.isActive} hasActiveInjury={a.hasActiveInjury} />
+                      </Descriptions.Item>
+                      <Descriptions.Item label="Заметки" span="filled">
+                        {a.notes || '—'}
+                      </Descriptions.Item>
                     </Descriptions>
                   ),
                 },
                 {
                   key: 'nutrition',
                   label: 'Питание',
-                  children: <NutritionForm key={a.nutritionPlan} athlete={a} onSaved={refetch} />,
+                  children: <NutritionForm key={a.nutritionPlan} athlete={a} onSaved={setData} />,
                 },
-                { key: 'injuries', label: 'Травмы', children: <InjuriesPanel athleteId={a.id} /> },
+                { key: 'injuries', label: 'Травмы', children: <InjuriesPanel athleteId={a.id} onChanged={refetch} /> },
                 { key: 'attendance', label: 'Посещаемость', children: <AttendanceTab athleteId={a.id} /> },
               ]}
             />

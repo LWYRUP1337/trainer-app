@@ -1,3 +1,5 @@
+import hashlib
+import secrets
 from datetime import UTC, datetime, timedelta
 
 import bcrypt
@@ -6,6 +8,7 @@ import jwt
 from app.core.config import get_settings
 
 ALGORITHM = "HS256"
+ACCESS_TOKEN_TYPE = "access"
 
 
 def hash_password(password: str) -> str:
@@ -25,7 +28,12 @@ DUMMY_HASH = hash_password("dummy-password")
 def create_access_token(user_id: int) -> str:
     settings = get_settings()
     now = datetime.now(UTC)
-    payload = {"sub": str(user_id), "iat": now, "exp": now + timedelta(minutes=settings.access_token_expire_minutes)}
+    payload = {
+        "sub": str(user_id),
+        "type": ACCESS_TOKEN_TYPE,
+        "iat": now,
+        "exp": now + timedelta(minutes=settings.access_token_expire_minutes),
+    }
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
 
 
@@ -35,8 +43,18 @@ def decode_access_token(token: str) -> int | None:
             token,
             get_settings().secret_key,
             algorithms=[ALGORITHM],
-            options={"require": ["sub", "exp"]},
+            options={"require": ["sub", "exp", "type"]},
         )
+        if payload["type"] != ACCESS_TOKEN_TYPE:
+            return None
         return int(payload["sub"])
     except (jwt.PyJWTError, ValueError):
         return None
+
+
+def new_refresh_token() -> str:
+    return secrets.token_urlsafe(48)
+
+
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()

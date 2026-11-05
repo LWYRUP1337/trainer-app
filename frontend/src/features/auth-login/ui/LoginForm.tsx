@@ -1,7 +1,6 @@
-import { useState } from 'react'
 import { Alert, Button, Form, Input } from 'antd'
 import { coachApi } from '@/entities/coach'
-import { errorMessage, rules } from '@/shared'
+import { rules, useAction } from '@/shared'
 
 interface LoginValues {
   email: string
@@ -9,26 +8,15 @@ interface LoginValues {
 }
 
 export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string>()
-
-  const submit = async (values: LoginValues) => {
-    setLoading(true)
-    setError(undefined)
-    try {
-      await coachApi.login(values)
-      onSuccess()
-    } catch (e) {
-      setError(errorMessage(e))
-    } finally {
-      setLoading(false)
-    }
-  }
+  const { run, pending, error } = useAction(async (values: LoginValues) => {
+    await coachApi.login(values)
+    onSuccess()
+  })
 
   return (
     <Form<LoginValues>
       layout="vertical"
-      onFinish={submit}
+      onFinish={run}
       initialValues={{ email: 'coach@example.com', password: 'demo1234' }}
       requiredMark={false}
     >
@@ -46,7 +34,7 @@ export function LoginForm({ onSuccess }: { onSuccess: () => void }) {
       >
         <Input.Password autoComplete="current-password" />
       </Form.Item>
-      <Button type="primary" htmlType="submit" block loading={loading}>
+      <Button type="primary" htmlType="submit" block loading={pending}>
         Войти
       </Button>
     </Form>

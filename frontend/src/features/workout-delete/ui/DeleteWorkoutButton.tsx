@@ -1,8 +1,10 @@
-import { Button, Popconfirm, message } from 'antd'
+import { App, Button, Popconfirm } from 'antd'
 import { workoutApi } from '@/entities/workout'
 import { errorMessage } from '@/shared'
 
 export function DeleteWorkoutButton({ workoutId, onDeleted }: { workoutId: number; onDeleted: () => void }) {
+  const { message } = App.useApp()
+
   const remove = async () => {
     try {
       await workoutApi.remove(workoutId)

@@ -2,22 +2,24 @@ import { useState } from 'react'
 import { Button, Card, Space, Table } from 'antd'
 import { PlusOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
-import { athleteApi, AthleteStatusTags, type AthleteFilter, type AthleteListItem } from '@/entities/athlete'
+import { athleteApi, AthleteStatusTags, type Athlete, type AthleteFilter } from '@/entities/athlete'
 import { AddAthleteModal } from '@/features/athlete-create'
 import { AthleteFilters } from '@/features/athlete-filters'
 import { AsyncState, PageHeader, ageFrom, routes, useDebounced, useQuery } from '@/shared'
+
+const emptyText: Record<AthleteFilter, string> = {
+  active: 'Активных спортсменов нет. Добавьте спортсмена или откройте «Все».',
+  injured: 'Спортсменов с незакрытыми травмами нет.',
+  all: 'Пока нет спортсменов. Добавьте первого.',
+}
 
 export default function AthletesPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<AthleteFilter>('active')
   const debounced = useDebounced(search, 300)
-  const { data, loading, error, refetch } = useQuery(
-    () => athleteApi.list({ search: debounced, filter }),
-    [debounced, filter],
-  )
+  const { data, loading, error, refetch } = useQuery(() => athleteApi.list({ search: debounced, filter }), [debounced, filter])
   const [open, setOpen] = useState(false)
   const [newId, setNewId] = useState<number>()
-  const filtered = search !== '' || filter !== 'all'
 
   return (
     <>
@@ -38,10 +40,10 @@ export default function AthletesPage() {
             data={data}
             onRetry={refetch}
             isEmpty={(items) => items.length === 0}
-            emptyText={filtered ? 'Ничего не найдено. Измените поиск или фильтр.' : 'Пока нет спортсменов. Добавьте первого.'}
+            emptyText={search.trim() ? 'Ничего не найдено. Измените поиск или фильтр.' : emptyText[filter]}
           >
             {(items) => (
-              <Table<AthleteListItem>
+              <Table<Athlete>
                 rowKey="id"
                 dataSource={items}
                 loading={loading}
