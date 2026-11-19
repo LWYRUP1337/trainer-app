@@ -1,6 +1,6 @@
 import { Alert, App, DatePicker, Form, Input, Modal, TimePicker } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
-import { workoutApi, type WorkoutDetails } from '@/entities/workout'
+import { workoutApi, type Workout } from '@/entities/workout'
 import { atTime, conflictToField, rules, useAction } from '@/shared'
 
 interface FormValues {
@@ -13,9 +13,9 @@ interface FormValues {
 
 interface Props {
   open: boolean
-  workout: WorkoutDetails
+  workout: Workout
   onClose: () => void
-  onSaved: (workout: WorkoutDetails) => void
+  onSaved: (workout: Workout) => void
 }
 
 export function EditWorkoutModal({ open, workout, onClose, onSaved }: Props) {

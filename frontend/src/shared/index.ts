@@ -1,5 +1,5 @@
 export { routes, weekdayNames } from './config/routes'
-export { ApiError, setSimulateFailure } from './api'
+export { ApiError } from './api'
 export { useQuery } from './lib/useQuery'
 export { useAction } from './lib/useAction'
 export { useDebounced } from './lib/useDebounced'

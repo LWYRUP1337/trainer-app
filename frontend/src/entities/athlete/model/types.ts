@@ -22,3 +22,10 @@ export interface AthleteFormValues {
 }
 
 export type AthleteFilter = 'active' | 'injured' | 'all'
+
+export interface AthleteListParams {
+  search: string
+  filter: AthleteFilter
+  page: number
+  pageSize: number
+}

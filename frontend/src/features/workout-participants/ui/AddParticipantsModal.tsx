@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Alert, App, Button, Modal, Space, Tag, Typography } from 'antd'
 import { athleteApi } from '@/entities/athlete'
-import { workoutApi, type WorkoutDetails } from '@/entities/workout'
+import { workoutApi, type Workout } from '@/entities/workout'
 import { AsyncState, useAction, useQuery } from '@/shared'
 
 interface Props {
   open: boolean
-  workout: WorkoutDetails
+  workout: Workout
   onClose: () => void
-  onAdded: (workout: WorkoutDetails) => void
+  onAdded: (workout: Workout) => void
 }
 
 interface PickerProps {
@@ -18,7 +18,7 @@ interface PickerProps {
 }
 
 function ParticipantPicker({ exclude, selected, onToggle }: PickerProps) {
-  const { data, loading, error, refetch } = useQuery(() => athleteApi.list({ search: '', filter: 'active' }), [])
+  const { data, loading, error, refetch } = useQuery(() => athleteApi.active(), [])
   return (
     <AsyncState
       loading={loading}

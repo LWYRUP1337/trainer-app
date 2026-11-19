@@ -1,8 +1,7 @@
 export interface Coach {
+  id: number
   fullName: string
   email: string
-  phone: string
-  club: string
 }
 
-export type CoachFormValues = Pick<Coach, 'fullName' | 'phone' | 'club'>
+export type CoachFormValues = Pick<Coach, 'fullName'>

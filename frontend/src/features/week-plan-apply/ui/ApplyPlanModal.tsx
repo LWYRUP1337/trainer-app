@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Alert, Button, DatePicker, Form, InputNumber, List, Modal } from 'antd'
 import dayjs, { type Dayjs } from 'dayjs'
+import { athleteApi } from '@/entities/athlete'
 import { weekPlanApi, type ApplyPlanResult } from '@/entities/week-plan'
 import { DATE_API, rules, useAction } from '@/shared'
 
@@ -10,17 +11,19 @@ interface FormValues {
 }
 
 interface Props {
+  planId: number
   open: boolean
   onClose: () => void
 }
 
 const nextMonday = () => dayjs().startOf('day').add(7 - ((dayjs().day() + 6) % 7), 'day')
 
-export function ApplyPlanModal({ open, onClose }: Props) {
+export function ApplyPlanModal({ planId, open, onClose }: Props) {
   const [form] = Form.useForm<FormValues>()
   const [result, setResult] = useState<ApplyPlanResult>()
-  const { run, pending, error, clearError } = useAction(async (values: FormValues) => {
-    setResult(await weekPlanApi.apply({ startDate: values.startDate.format(DATE_API), weeks: values.weeks }))
+  const { run, pending, error, clearError } = useAction(async ({ startDate, weeks }: FormValues) => {
+    const athleteIds = (await athleteApi.active()).map((a) => a.id)
+    setResult(await weekPlanApi.apply(planId, { startDate: startDate.format(DATE_API), weeks, athleteIds }))
   })
 
   return (

@@ -1,63 +1,75 @@
-import { ApiError, db, request } from '@/shared/api'
-import type { Athlete, AthleteFilter, AthleteFormValues, AthletePatch } from '../model/types'
+import { request, type Page } from '@/shared/api'
+import type { Athlete, AthleteFormValues, AthleteListParams, AthletePatch } from '../model/types'
 
-function find(id: number) {
-  const athlete = db.athletes.find((a) => a.id === id)
-  if (!athlete) throw new ApiError('Спортсмен не найден', 'not_found')
-  return athlete
+interface AthleteDto {
+  id: number
+  full_name: string
+  birth_date: string | null
+  height_cm: number | null
+  weight_kg: number | null
+  phone: string | null
+  notes: string | null
+  nutrition_plan: string | null
+  is_active: boolean
+  has_active_injury: boolean
 }
 
-const hasActiveInjury = (athleteId: number) =>
-  db.injuries.some((i) => i.athleteId === athleteId && i.recoveredAt === null)
+const MAX_PAGE_SIZE = 100
 
-const withStatus = (athlete: Omit<Athlete, 'hasActiveInjury'>): Athlete => ({
-  ...athlete,
-  hasActiveInjury: hasActiveInjury(athlete.id),
+const toAthlete = (dto: AthleteDto): Athlete => ({
+  id: dto.id,
+  fullName: dto.full_name,
+  birthDate: dto.birth_date,
+  heightCm: dto.height_cm,
+  weightKg: dto.weight_kg,
+  phone: dto.phone ?? '',
+  notes: dto.notes ?? '',
+  nutritionPlan: dto.nutrition_plan ?? '',
+  isActive: dto.is_active,
+  hasActiveInjury: dto.has_active_injury,
 })
 
+async function list({ search, filter, page, pageSize }: AthleteListParams): Promise<Page<Athlete>> {
+  const data = await request<Page<AthleteDto>>('/athletes', {
+    query: {
+      search: search.trim(),
+      is_active: filter === 'active' ? true : undefined,
+      has_active_injury: filter === 'injured' ? true : undefined,
+      limit: pageSize,
+      offset: (page - 1) * pageSize,
+    },
+  })
+  return { items: data.items.map(toAthlete), total: data.total }
+}
+
 export const athleteApi = {
-  list: (params: { search: string; filter: AthleteFilter }) =>
-    request<Athlete[]>(() => {
-      const query = params.search.trim().toLowerCase()
-      return db.athletes
-        .map(withStatus)
-        .filter((a) => !query || a.fullName.toLowerCase().includes(query))
-        .filter((a) => {
-          if (params.filter === 'active') return a.isActive
-          if (params.filter === 'injured') return a.hasActiveInjury
-          return true
-        })
-        .sort((a, b) => a.fullName.localeCompare(b.fullName, 'ru'))
-    }),
+  list,
 
-  get: (id: number) => request<Athlete>(() => withStatus(find(id))),
+  active: async () => (await list({ search: '', filter: 'active', page: 1, pageSize: MAX_PAGE_SIZE })).items,
 
-  create: (values: AthleteFormValues) =>
-    request<Athlete>(() => {
-      const athlete = {
-        id: db.seq.athlete++,
-        fullName: values.fullName.trim(),
-        birthDate: values.birthDate ?? null,
-        heightCm: values.heightCm ?? null,
-        weightKg: values.weightKg ?? null,
-        phone: values.phone?.trim() ?? '',
-        isActive: true,
-        notes: '',
-        nutritionPlan: '',
-      }
-      db.athletes.push(athlete)
-      return withStatus(athlete)
-    }, 250),
+  get: async (id: number) => toAthlete(await request<AthleteDto>(`/athletes/${id}`)),
 
-  update: (id: number, patch: AthletePatch) => request<Athlete>(() => withStatus(Object.assign(find(id), patch)), 250),
+  create: async ({ fullName, birthDate, heightCm, weightKg, phone }: AthleteFormValues) =>
+    toAthlete(
+      await request<AthleteDto>('/athletes', {
+        method: 'POST',
+        json: {
+          full_name: fullName,
+          birth_date: birthDate ?? null,
+          height_cm: heightCm ?? null,
+          weight_kg: weightKg ?? null,
+          phone: phone?.trim() || null,
+        },
+      }),
+    ),
 
-  remove: (id: number) =>
-    request<void>(() => {
-      find(id)
-      db.athletes = db.athletes.filter((a) => a.id !== id)
-      db.injuries = db.injuries.filter((i) => i.athleteId !== id)
-      db.workouts.forEach((w) => {
-        w.participants = w.participants.filter((p) => p.athleteId !== id)
-      })
-    }, 250),
+  update: async (id: number, { nutritionPlan, isActive }: AthletePatch) =>
+    toAthlete(
+      await request<AthleteDto>(`/athletes/${id}`, {
+        method: 'PATCH',
+        json: { nutrition_plan: nutritionPlan, is_active: isActive },
+      }),
+    ),
+
+  remove: (id: number) => request<void>(`/athletes/${id}`, { method: 'DELETE' }),
 }

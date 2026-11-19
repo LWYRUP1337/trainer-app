@@ -7,6 +7,8 @@ import { AddAthleteModal } from '@/features/athlete-create'
 import { AthleteFilters } from '@/features/athlete-filters'
 import { AsyncState, PageHeader, ageFrom, routes, useDebounced, useQuery } from '@/shared'
 
+const PAGE_SIZE = 8
+
 const emptyText: Record<AthleteFilter, string> = {
   active: 'Активных спортсменов нет. Добавьте спортсмена или откройте «Все».',
   injured: 'Спортсменов с незакрытыми травмами нет.',
@@ -16,10 +18,24 @@ const emptyText: Record<AthleteFilter, string> = {
 export default function AthletesPage() {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<AthleteFilter>('active')
+  const [page, setPage] = useState(1)
   const debounced = useDebounced(search, 300)
-  const { data, loading, error, refetch } = useQuery(() => athleteApi.list({ search: debounced, filter }), [debounced, filter])
+  const { data, loading, error, refetch } = useQuery(
+    () => athleteApi.list({ search: debounced, filter, page, pageSize: PAGE_SIZE }),
+    [debounced, filter, page],
+  )
   const [open, setOpen] = useState(false)
   const [newId, setNewId] = useState<number>()
+
+  const changeSearch = (value: string) => {
+    setSearch(value)
+    setPage(1)
+  }
+
+  const changeFilter = (value: AthleteFilter) => {
+    setFilter(value)
+    setPage(1)
+  }
 
   return (
     <>
@@ -33,21 +49,28 @@ export default function AthletesPage() {
       />
       <Card>
         <Space direction="vertical" style={{ width: '100%' }} size="middle">
-          <AthleteFilters search={search} filter={filter} onSearchChange={setSearch} onFilterChange={setFilter} />
+          <AthleteFilters search={search} filter={filter} onSearchChange={changeSearch} onFilterChange={changeFilter} />
           <AsyncState
             loading={loading}
             error={error}
             data={data}
             onRetry={refetch}
-            isEmpty={(items) => items.length === 0}
+            isEmpty={(result) => result.total === 0}
             emptyText={search.trim() ? 'Ничего не найдено. Измените поиск или фильтр.' : emptyText[filter]}
           >
-            {(items) => (
+            {(result) => (
               <Table<Athlete>
                 rowKey="id"
-                dataSource={items}
+                dataSource={result.items}
                 loading={loading}
-                pagination={{ pageSize: 8, hideOnSinglePage: true }}
+                pagination={{
+                  current: page,
+                  pageSize: PAGE_SIZE,
+                  total: result.total,
+                  onChange: setPage,
+                  showSizeChanger: false,
+                  hideOnSinglePage: true,
+                }}
                 scroll={{ x: 640 }}
                 rowClassName={(r) => (r.id === newId ? 'row-new' : '')}
                 columns={[
@@ -67,8 +90,8 @@ export default function AthletesPage() {
         onClose={() => setOpen(false)}
         onCreated={(athlete) => {
           setOpen(false)
-          setSearch('')
-          setFilter('active')
+          changeSearch('')
+          changeFilter('active')
           setNewId(athlete.id)
           refetch()
         }}

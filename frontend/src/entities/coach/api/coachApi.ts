@@ -1,16 +1,17 @@
-import { ApiError, db, request } from '@/shared/api'
+import { request } from '@/shared/api'
 import type { Coach, CoachFormValues } from '../model/types'
 
-export const coachApi = {
-  get: () => request<Coach>(() => db.coach),
-  update: (values: CoachFormValues) =>
-    request<Coach>(() => Object.assign(db.coach, values), 250),
+interface CoachDto {
+  id: number
+  email: string
+  full_name: string
+}
 
-  login: (values: { email: string; password: string }) =>
-    request<Coach>(() => {
-      if (values.password !== 'demo1234') {
-        throw new ApiError('Неверный email или пароль (в демо-режиме пароль: demo1234)')
-      }
-      return db.coach
-    }, 250),
+const toCoach = (dto: CoachDto): Coach => ({ id: dto.id, fullName: dto.full_name, email: dto.email })
+
+export const coachApi = {
+  get: async () => toCoach(await request<CoachDto>('/auth/me')),
+
+  update: async ({ fullName }: CoachFormValues) =>
+    toCoach(await request<CoachDto>('/auth/me', { method: 'PATCH', json: { full_name: fullName } })),
 }

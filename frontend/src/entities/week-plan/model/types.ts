@@ -22,6 +22,7 @@ export interface SlotFormValues {
 export interface ApplyPlanValues {
   startDate: string
   weeks: number
+  athleteIds: number[]
 }
 
 export interface ApplyPlanResult {

@@ -1,57 +1,67 @@
-import dayjs, { type Dayjs } from 'dayjs'
-import { db, request } from '@/shared/api'
-import type { AthleteAttendance, AttendanceRow, DashboardStats, SummaryReport } from '../model/types'
+import type { Dayjs } from 'dayjs'
+import { DATE_API } from '@/shared'
+import { request } from '@/shared/api'
+import type { AthleteAttendance, DashboardStats, MarkedStatus, SummaryReport } from '../model/types'
 
-const percent = (present: number, total: number) => (total ? Math.round((present * 100) / total) : 0)
+interface SummaryDto {
+  workouts_held: number
+  attendance_percent: number
+  new_injuries: number
+}
+
+interface AttendanceDto {
+  items: { athlete_id: number; full_name: string; present: number; absent: number; excused: number; percent: number }[]
+}
+
+interface AthleteAttendanceDto {
+  present: number
+  total: number
+  percent: number
+  history: { workout_id: number; title: string; starts_at: string; status: MarkedStatus }[]
+}
+
+interface DashboardDto {
+  active_athletes: number
+  active_injuries: number
+  upcoming_workouts: number
+}
 
 export const reportApi = {
-  summary: (from: Dayjs, to: Dayjs) =>
-    request<SummaryReport>(() => {
-      const inRange = db.workouts.filter(
-        (w) => !dayjs(w.start).isBefore(from.startOf('day')) && !dayjs(w.start).isAfter(to.endOf('day')),
-      )
-      const rows: AttendanceRow[] = db.athletes
-        .filter((a) => a.isActive)
-        .map((a) => {
-          let present = 0
-          let absent = 0
-          let excused = 0
-          for (const w of inRange) {
-            const p = w.participants.find((x) => x.athleteId === a.id)
-            if (p?.status === 'present') present++
-            if (p?.status === 'absent') absent++
-            if (p?.status === 'excused') excused++
-          }
-          return { athleteId: a.id, fullName: a.fullName, present, absent, excused, percent: percent(present, present + absent + excused) }
-        })
+  summary: async (from: Dayjs, to: Dayjs): Promise<SummaryReport> => {
+    const query = { date_from: from.format(DATE_API), date_to: to.format(DATE_API) }
+    const [summary, attendance] = await Promise.all([
+      request<SummaryDto>('/reports/summary', { query }),
+      request<AttendanceDto>('/reports/attendance', { query }),
+    ])
+    return {
+      held: summary.workouts_held,
+      averagePercent: summary.attendance_percent,
+      newInjuries: summary.new_injuries,
+      rows: attendance.items
         .filter((r) => r.present + r.absent + r.excused > 0)
-      const totalPresent = rows.reduce((s, r) => s + r.present, 0)
-      const totalCounted = rows.reduce((s, r) => s + r.present + r.absent + r.excused, 0)
-      return {
-        held: inRange.filter((w) => dayjs(w.end).isBefore(dayjs())).length,
-        averagePercent: percent(totalPresent, totalCounted),
-        newInjuries: db.injuries.filter(
-          (i) => !dayjs(i.startedAt).isBefore(from.startOf('day')) && !dayjs(i.startedAt).isAfter(to.endOf('day')),
-        ).length,
-        rows,
-      }
-    }),
+        .map((r) => ({
+          athleteId: r.athlete_id,
+          fullName: r.full_name,
+          present: r.present,
+          absent: r.absent,
+          excused: r.excused,
+          percent: r.percent,
+        })),
+    }
+  },
 
-  athleteAttendance: (athleteId: number) =>
-    request<AthleteAttendance>(() => {
-      const history: AthleteAttendance['history'] = []
-      for (const w of [...db.workouts].sort((a, b) => dayjs(b.start).valueOf() - dayjs(a.start).valueOf())) {
-        const p = w.participants.find((x) => x.athleteId === athleteId)
-        if (p && p.status !== 'planned') history.push({ workoutId: w.id, title: w.title, start: w.start, status: p.status })
-      }
-      const present = history.filter((h) => h.status === 'present').length
-      return { present, total: history.length, percent: percent(present, history.length), history: history.slice(0, 10) }
-    }),
+  athleteAttendance: async (athleteId: number): Promise<AthleteAttendance> => {
+    const dto = await request<AthleteAttendanceDto>(`/reports/athletes/${athleteId}/attendance`)
+    return {
+      present: dto.present,
+      total: dto.total,
+      percent: dto.percent,
+      history: dto.history.map((h) => ({ workoutId: h.workout_id, title: h.title, start: h.starts_at, status: h.status })),
+    }
+  },
 
-  dashboard: () =>
-    request<DashboardStats>(() => ({
-      activeAthletes: db.athletes.filter((a) => a.isActive).length,
-      activeInjuries: db.injuries.filter((i) => i.recoveredAt === null).length,
-      upcoming: db.workouts.filter((w) => dayjs(w.start).isAfter(dayjs())).length,
-    })),
+  dashboard: async (): Promise<DashboardStats> => {
+    const dto = await request<DashboardDto>('/reports/dashboard')
+    return { activeAthletes: dto.active_athletes, activeInjuries: dto.active_injuries, upcoming: dto.upcoming_workouts }
+  },
 }

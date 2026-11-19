@@ -2,12 +2,12 @@ import { useState } from 'react'
 import { Alert, App, Button, Popconfirm, Progress, Segmented, Space, Table, Tag } from 'antd'
 import { CloseOutlined } from '@ant-design/icons'
 import { Link } from 'react-router-dom'
-import { workoutApi, statusLabel, type AttendanceStatus, type ParticipantView, type WorkoutDetails } from '@/entities/workout'
+import { workoutApi, statusLabel, type AttendanceStatus, type Participant, type Workout } from '@/entities/workout'
 import { errorMessage, routes, useAction } from '@/shared'
 
 interface Props {
-  workout: WorkoutDetails
-  onChanged: (workout: WorkoutDetails) => void
+  workout: Workout
+  onChanged: (workout: Workout) => void
 }
 
 const statuses: AttendanceStatus[] = ['planned', 'present', 'absent', 'excused']
@@ -59,7 +59,7 @@ export function AttendanceTable({ workout, onChanged }: Props) {
       </Space>
       <Progress percent={rows.length ? Math.round((marked * 100) / rows.length) : 0} size="small" format={(p) => `${p}% отмечено`} />
       {save.error && <Alert type="error" showIcon message={save.error} />}
-      <Table<ParticipantView>
+      <Table<Participant>
         rowKey="athleteId"
         dataSource={rows}
         pagination={false}

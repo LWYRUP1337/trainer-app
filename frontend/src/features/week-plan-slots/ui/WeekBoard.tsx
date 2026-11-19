@@ -23,7 +23,8 @@ export function WeekBoard({ plan, onChanged }: Props) {
 
   const add = useAction(async ({ title, time: [from, to] }: SlotValues) => {
     if (!weekday) return
-    const updated = await weekPlanApi.addSlot({ weekday, title, startTime: from.format('HH:mm'), endTime: to.format('HH:mm') })
+    const slot = { weekday, title, startTime: from.format('HH:mm'), endTime: to.format('HH:mm') }
+    const updated = await weekPlanApi.addSlot(plan.id, slot)
     message.success('Слот добавлен')
     setWeekday(undefined)
     onChanged(updated)
@@ -31,7 +32,7 @@ export function WeekBoard({ plan, onChanged }: Props) {
 
   const remove = async (id: number) => {
     try {
-      onChanged(await weekPlanApi.removeSlot(id))
+      onChanged(await weekPlanApi.removeSlot(plan.id, id))
       message.success('Слот удалён')
     } catch (e) {
       message.error(errorMessage(e))

@@ -48,8 +48,6 @@ export default function DashboardPage() {
                 <Descriptions column={1} size="small">
                   <Descriptions.Item label="Имя">{d.coach.fullName}</Descriptions.Item>
                   <Descriptions.Item label="Email">{d.coach.email}</Descriptions.Item>
-                  <Descriptions.Item label="Телефон">{d.coach.phone || '—'}</Descriptions.Item>
-                  <Descriptions.Item label="Клуб">{d.coach.club || '—'}</Descriptions.Item>
                 </Descriptions>
               </Card>
               <EditProfileModal

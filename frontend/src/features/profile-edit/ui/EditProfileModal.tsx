@@ -30,15 +30,9 @@ export function EditProfileModal({ open, coach, onClose, onSaved }: Props) {
       destroyOnHidden
       afterClose={clearError}
     >
-      <Form form={form} layout="vertical" onFinish={run} initialValues={coach} preserve={false}>
+      <Form form={form} layout="vertical" onFinish={run} initialValues={{ fullName: coach.fullName }} preserve={false}>
         {error && <Alert type="error" showIcon message={error} style={{ marginBottom: 16 }} />}
         <Form.Item label="Имя" name="fullName" rules={rules.text('имя')}>
-          <Input />
-        </Form.Item>
-        <Form.Item label="Телефон" name="phone" rules={rules.phone}>
-          <Input />
-        </Form.Item>
-        <Form.Item label="Клуб" name="club" rules={rules.optionalText(255)}>
           <Input />
         </Form.Item>
       </Form>

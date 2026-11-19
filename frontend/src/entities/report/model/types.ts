@@ -1,3 +1,5 @@
+export type MarkedStatus = 'present' | 'absent' | 'excused'
+
 export interface AttendanceRow {
   athleteId: number
   fullName: string
@@ -18,7 +20,7 @@ export interface AthleteAttendance {
   present: number
   total: number
   percent: number
-  history: { workoutId: number; title: string; start: string; status: 'present' | 'absent' | 'excused' }[]
+  history: { workoutId: number; title: string; start: string; status: MarkedStatus }[]
 }
 
 export interface DashboardStats {

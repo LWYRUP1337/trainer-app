@@ -1,22 +1,18 @@
-import { Select } from 'antd'
+import { Select, type SelectProps } from 'antd'
 import { useQuery } from '@/shared'
 import { athleteApi } from '../api/athleteApi'
 
-interface Props {
-  value?: number[]
-  onChange?: (value: number[]) => void
-}
+type Props = Omit<SelectProps<number[]>, 'mode' | 'options' | 'loading'>
 
-export function ActiveAthleteSelect({ value, onChange }: Props) {
-  const { data, loading } = useQuery(() => athleteApi.list({ search: '', filter: 'active' }), [])
+export function ActiveAthleteSelect(props: Props) {
+  const { data, loading } = useQuery(() => athleteApi.active(), [])
   return (
     <Select
-      mode="multiple"
-      value={value}
-      onChange={onChange}
       placeholder="Выберите спортсменов"
-      loading={loading}
       optionFilterProp="label"
+      {...props}
+      mode="multiple"
+      loading={loading}
       options={data?.map((a) => ({ value: a.id, label: a.fullName }))}
     />
   )

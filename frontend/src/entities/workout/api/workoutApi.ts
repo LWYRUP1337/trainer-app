@@ -1,119 +1,73 @@
 import dayjs from 'dayjs'
-import { ApiError, db, request } from '@/shared/api'
-import type { Participant, Workout, WorkoutDetails, WorkoutFormValues, WorkoutPatch } from '../model/types'
+import { request } from '@/shared/api'
+import type { AttendanceMark, AttendanceStatus, Workout, WorkoutFormValues, WorkoutPatch } from '../model/types'
 
-function find(id: number): Workout {
-  const workout = db.workouts.find((w) => w.id === id)
-  if (!workout) throw new ApiError('Тренировка не найдена', 'not_found')
-  return workout
+interface WorkoutDto {
+  id: number
+  title: string
+  description: string | null
+  location: string | null
+  starts_at: string
+  ends_at: string
+  participants: { athlete_id: number; athlete_name: string; status: AttendanceStatus }[]
 }
 
-function toDetails(workout: Workout): WorkoutDetails {
-  return {
-    ...workout,
-    participants: workout.participants.map((p) => ({
-      ...p,
-      athleteName: db.athletes.find((a) => a.id === p.athleteId)?.fullName ?? '—',
-    })),
-  }
-}
+const CALENDAR_LIMIT = 500
 
-const byStart = (a: Workout, b: Workout) => dayjs(a.start).valueOf() - dayjs(b.start).valueOf()
+const toWorkout = (dto: WorkoutDto): Workout => ({
+  id: dto.id,
+  title: dto.title,
+  description: dto.description ?? '',
+  location: dto.location ?? '',
+  start: dto.starts_at,
+  end: dto.ends_at,
+  participants: dto.participants.map((p) => ({ athleteId: p.athlete_id, athleteName: p.athlete_name, status: p.status })),
+})
+
+const list = async (query: Record<string, string | number>) =>
+  (await request<WorkoutDto[]>('/workouts', { query })).map(toWorkout)
+
+const toItems = (marks: AttendanceMark[]) => marks.map((m) => ({ athlete_id: m.athleteId, status: m.status }))
 
 export const workoutApi = {
-  listByMonth: (year: number, month: number) =>
-    request<Workout[]>(() =>
-      db.workouts
-        .filter((w) => dayjs(w.start).year() === year && dayjs(w.start).month() === month)
-        .sort(byStart),
+  listByMonth: (year: number, month: number) => {
+    const start = dayjs().year(year).month(month).startOf('month')
+    return list({ date_from: start.format(), date_to: start.add(1, 'month').format(), limit: CALENDAR_LIMIT })
+  },
+
+  upcoming: (limit: number) => list({ date_from: dayjs().format(), limit }),
+
+  get: async (id: number) => toWorkout(await request<WorkoutDto>(`/workouts/${id}`)),
+
+  create: async ({ title, start, end, location, athleteIds }: WorkoutFormValues) =>
+    toWorkout(
+      await request<WorkoutDto>('/workouts', {
+        method: 'POST',
+        json: { title, starts_at: start, ends_at: end, location: location?.trim() || null, athlete_ids: athleteIds },
+      }),
     ),
 
-  get: (id: number) => request<WorkoutDetails>(() => toDetails(find(id))),
-
-  upcoming: (limit: number) =>
-    request<Workout[]>(() =>
-      db.workouts
-        .filter((w) => dayjs(w.start).isAfter(dayjs()))
-        .sort(byStart)
-        .slice(0, limit),
+  update: async (id: number, { title, description, location, start, end }: WorkoutPatch) =>
+    toWorkout(
+      await request<WorkoutDto>(`/workouts/${id}`, {
+        method: 'PATCH',
+        json: { title, description: description || null, location: location || null, starts_at: start, ends_at: end },
+      }),
     ),
 
-  create: (values: WorkoutFormValues) =>
-    request<Workout>(() => {
-      const start = dayjs(values.start)
-      const end = dayjs(values.end)
-      if (!end.isAfter(start)) throw new ApiError('Конец тренировки должен быть позже начала')
-      const clash = db.workouts.find((w) => dayjs(w.start).isBefore(end) && dayjs(w.end).isAfter(start))
-      if (clash) {
-        throw new ApiError(
-          `Время пересекается с тренировкой «${clash.title}» ${dayjs(clash.start).format('DD.MM HH:mm')}–${dayjs(clash.end).format('HH:mm')}`,
-          'time_conflict',
-        )
-      }
-      const workout: Workout = {
-        id: db.seq.workout++,
-        title: values.title.trim(),
-        description: '',
-        location: values.location?.trim() ?? '',
-        start: values.start,
-        end: values.end,
-        participants: values.athleteIds.map((athleteId) => ({ athleteId, status: 'planned' })),
-      }
-      db.workouts.push(workout)
-      return workout
-    }, 250),
+  remove: (id: number) => request<void>(`/workouts/${id}`, { method: 'DELETE' }),
 
-  saveAttendance: (id: number, participants: Participant[]) =>
-    request<WorkoutDetails>(() => {
-      const workout = find(id)
-      workout.participants = participants
-      return toDetails(workout)
-    }, 250),
-
-  update: (id: number, patch: WorkoutPatch) =>
-    request<WorkoutDetails>(() => {
-      const workout = find(id)
-      const start = dayjs(patch.start ?? workout.start)
-      const end = dayjs(patch.end ?? workout.end)
-      if (!end.isAfter(start)) throw new ApiError('Конец тренировки должен быть позже начала')
-      const clash = db.workouts.find(
-        (w) => w.id !== id && dayjs(w.start).isBefore(end) && dayjs(w.end).isAfter(start),
-      )
-      if (clash) {
-        throw new ApiError(
-          `Время пересекается с тренировкой «${clash.title}» ${dayjs(clash.start).format('DD.MM HH:mm')}–${dayjs(clash.end).format('HH:mm')}`,
-          'time_conflict',
-        )
-      }
-      Object.assign(workout, patch)
-      return toDetails(workout)
-    }, 250),
-
-  remove: (id: number) =>
-    request<void>(() => {
-      find(id)
-      db.workouts = db.workouts.filter((w) => w.id !== id)
-    }, 250),
+  saveAttendance: async (id: number, marks: AttendanceMark[]) =>
+    toWorkout(await request<WorkoutDto>(`/workouts/${id}/attendance`, { method: 'PUT', json: { items: toItems(marks) } })),
 
   addParticipants: (id: number, athleteIds: number[]) =>
-    request<WorkoutDetails>(() => {
-      const workout = find(id)
-      for (const athleteId of athleteIds) {
-        if (!db.athletes.some((a) => a.id === athleteId)) throw new ApiError('Спортсмен не найден', 'not_found')
-        if (!workout.participants.some((p) => p.athleteId === athleteId)) {
-          workout.participants.push({ athleteId, status: 'planned' })
-        }
-      }
-      return toDetails(workout)
-    }, 250),
+    workoutApi.saveAttendance(
+      id,
+      athleteIds.map((athleteId) => ({ athleteId, status: 'planned' })),
+    ),
 
-  removeParticipant: (id: number, athleteId: number) =>
-    request<WorkoutDetails>(() => {
-      const workout = find(id)
-      if (!workout.participants.some((p) => p.athleteId === athleteId)) {
-        throw new ApiError('Спортсмен не участвует в этой тренировке', 'not_found')
-      }
-      workout.participants = workout.participants.filter((p) => p.athleteId !== athleteId)
-      return toDetails(workout)
-    }, 250),
+  removeParticipant: async (id: number, athleteId: number) => {
+    await request<void>(`/workouts/${id}/participants/${athleteId}`, { method: 'DELETE' })
+    return workoutApi.get(id)
+  },
 }

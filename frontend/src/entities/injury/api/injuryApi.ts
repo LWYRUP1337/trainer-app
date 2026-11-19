@@ -1,39 +1,48 @@
 import dayjs from 'dayjs'
-import { ApiError, db, request } from '@/shared/api'
-import type { Injury, InjuryFormValues } from '../model/types'
+import { DATE_API } from '@/shared'
+import { request } from '@/shared/api'
+import type { Injury, InjuryFormValues, Severity } from '../model/types'
+
+interface InjuryDto {
+  id: number
+  athlete_id: number
+  title: string
+  body_part: string
+  severity: Severity
+  started_at: string
+  recovered_at: string | null
+  notes: string | null
+}
+
+const toInjury = (dto: InjuryDto): Injury => ({
+  id: dto.id,
+  athleteId: dto.athlete_id,
+  title: dto.title,
+  bodyPart: dto.body_part,
+  severity: dto.severity,
+  startedAt: dto.started_at,
+  recoveredAt: dto.recovered_at,
+  notes: dto.notes ?? '',
+})
 
 export const injuryApi = {
-  list: (athleteId: number) =>
-    request<Injury[]>(() =>
-      db.injuries.filter((i) => i.athleteId === athleteId).sort((a, b) => b.startedAt.localeCompare(a.startedAt)),
+  list: async (athleteId: number) => (await request<InjuryDto[]>(`/athletes/${athleteId}/injuries`)).map(toInjury),
+
+  create: async (athleteId: number, { title, bodyPart, severity, startedAt, notes }: InjuryFormValues) =>
+    toInjury(
+      await request<InjuryDto>(`/athletes/${athleteId}/injuries`, {
+        method: 'POST',
+        json: { title, body_part: bodyPart, severity, started_at: startedAt, notes: notes?.trim() || null },
+      }),
     ),
 
-  create: (athleteId: number, values: InjuryFormValues) =>
-    request<Injury>(() => {
-      const injury: Injury = {
-        id: db.seq.injury++,
-        athleteId,
-        title: values.title.trim(),
-        bodyPart: values.bodyPart.trim(),
-        severity: values.severity,
-        startedAt: values.startedAt,
-        recoveredAt: null,
-        notes: values.notes?.trim() ?? '',
-      }
-      db.injuries.push(injury)
-      return injury
-    }, 250),
+  markRecovered: async (id: number) =>
+    toInjury(
+      await request<InjuryDto>(`/injuries/${id}`, {
+        method: 'PATCH',
+        json: { recovered_at: dayjs().format(DATE_API) },
+      }),
+    ),
 
-  markRecovered: (id: number) =>
-    request<Injury>(() => {
-      const injury = db.injuries.find((i) => i.id === id)
-      if (!injury) throw new ApiError('Травма не найдена', 'not_found')
-      injury.recoveredAt = dayjs().format('YYYY-MM-DD')
-      return injury
-    }, 150),
-
-  remove: (id: number) =>
-    request<void>(() => {
-      db.injuries = db.injuries.filter((i) => i.id !== id)
-    }, 150),
+  remove: (id: number) => request<void>(`/injuries/${id}`, { method: 'DELETE' }),
 }
