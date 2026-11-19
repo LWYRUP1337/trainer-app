@@ -1,16 +1,17 @@
 import { Suspense } from 'react'
-import { Button, Dropdown, Layout, Menu, Skeleton, Space, Typography } from 'antd'
+import { App, Button, Dropdown, Layout, Menu, Skeleton, Space, Typography } from 'antd'
 import {
   BarChartOutlined,
   CalendarOutlined,
   HomeOutlined,
+  LogoutOutlined,
   ScheduleOutlined,
   TeamOutlined,
   UserOutlined,
 } from '@ant-design/icons'
-import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom'
-import { FailureToggle } from '@/features/simulate-failure'
-import { routes } from '@/shared'
+import { Link, Outlet, useLocation } from 'react-router-dom'
+import { useSession } from '@/entities/session'
+import { errorMessage, routes } from '@/shared'
 
 const items = [
   { key: routes.dashboard, icon: <HomeOutlined />, label: <Link to={routes.dashboard}>Кабинет</Link> },
@@ -30,7 +31,10 @@ function activeKey(pathname: string): string {
 
 export function AppLayout() {
   const { pathname } = useLocation()
-  const navigate = useNavigate()
+  const { logout } = useSession()
+  const { message } = App.useApp()
+
+  const signOut = () => logout().catch((e: unknown) => message.error(errorMessage(e)))
 
   return (
     <Layout style={{ minHeight: '100vh' }}>
@@ -48,8 +52,7 @@ export function AppLayout() {
       </Layout.Sider>
       <Layout>
         <Layout.Header style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 24, padding: '0 24px' }}>
-          <FailureToggle />
-          <Dropdown menu={{ items: [{ key: 'out', label: 'Выйти' }], onClick: () => navigate(routes.login) }}>
+          <Dropdown menu={{ items: [{ key: 'logout', icon: <LogoutOutlined />, label: 'Выйти' }], onClick: signOut }}>
             <Button type="text">
               <Space>
                 <UserOutlined />

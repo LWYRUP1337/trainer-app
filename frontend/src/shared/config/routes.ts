@@ -1,5 +1,6 @@
 export const routes = {
   login: '/login',
+  register: '/register',
   dashboard: '/',
   athletes: '/athletes',
   athlete: (id: number | string) => `/athletes/${id}`,

@@ -26,5 +26,15 @@ export const rules = {
     { required: true, message: 'Введите email' },
     { type: 'email', message: 'Введите корректный email, например name@example.com' },
   ] as Rule[],
+  password: [
+    { required: true, message: 'Введите пароль' },
+    { min: 8, message: 'Пароль не короче 8 символов' },
+    {
+      validator: (_, value?: string) =>
+        !value || new TextEncoder().encode(value).length <= 72
+          ? Promise.resolve()
+          : Promise.reject(new Error('Пароль слишком длинный')),
+    },
+  ] as Rule[],
   required: (message: string): Rule[] => [{ required: true, message }],
 }
