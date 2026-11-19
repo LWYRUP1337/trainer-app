@@ -5,7 +5,7 @@ from tests.helpers import API, make_athlete
 STARTED = (date.today() - timedelta(days=40)).isoformat()
 BEFORE_STARTED = (date.today() - timedelta(days=50)).isoformat()
 RECOVERED = (date.today() - timedelta(days=10)).isoformat()
-TOMORROW = (date.today() + timedelta(days=1)).isoformat()
+FUTURE = (date.today() + timedelta(days=2)).isoformat()
 
 
 def _injury(**extra):
@@ -17,7 +17,7 @@ def test_injury_lifecycle(client, coach):
     url = f"{API}/athletes/{a['id']}/injuries"
 
     assert client.post(url, json=_injury(recovered_at=BEFORE_STARTED), headers=coach).status_code == 422
-    assert client.post(url, json=_injury(started_at=TOMORROW), headers=coach).status_code == 422
+    assert client.post(url, json=_injury(started_at=FUTURE), headers=coach).status_code == 422
 
     inj = client.post(url, json=_injury(), headers=coach)
     assert inj.status_code == 201

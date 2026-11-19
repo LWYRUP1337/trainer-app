@@ -4,6 +4,7 @@ from typing import Self
 
 from pydantic import BaseModel, model_validator
 
+from app.core.dates import latest_local_date
 from app.core.schemas import LongText, Name, ORMModel, PatchModel, ShortName
 from app.modules.injuries.models import Severity
 
@@ -14,12 +15,12 @@ class InjuryStatus(enum.StrEnum):
 
 
 def check_dates(started_at: date, recovered_at: date | None) -> None:
-    today = date.today()
-    if started_at > today:
+    latest = latest_local_date()
+    if started_at > latest:
         raise ValueError("Дата травмы не может быть в будущем")
     if recovered_at is not None and recovered_at < started_at:
         raise ValueError("Дата выздоровления не может быть раньше даты травмы")
-    if recovered_at is not None and recovered_at > today:
+    if recovered_at is not None and recovered_at > latest:
         raise ValueError("Дата выздоровления не может быть в будущем")
 
 
