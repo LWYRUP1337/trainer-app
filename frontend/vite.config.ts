@@ -24,5 +24,8 @@ export default defineConfig({
     host: '0.0.0.0',
     port: 5173,
     watch: { usePolling: true },
+    proxy: {
+      '/api': process.env.API_PROXY_TARGET ?? 'http://localhost:8000',
+    },
   },
 })
