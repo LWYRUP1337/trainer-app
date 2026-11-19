@@ -1,6 +1,6 @@
 from datetime import timedelta
 
-from tests.helpers import API, PAST_DAY, make_athlete, workout
+from tests.helpers import API, PAST_DAY, make_athlete, next_monday, workout
 
 
 def _period(**extra):
@@ -38,3 +38,32 @@ def test_report_validation(client, coach, other_coach):
     too_long = {"date_from": PAST_DAY.isoformat(), "date_to": (PAST_DAY + timedelta(days=400)).isoformat()}
     assert client.get(f"{API}/reports/attendance", params=too_long, headers=coach).status_code == 422
     assert client.get(f"{API}/reports/summary", params={"date_from": PAST_DAY.isoformat()}, headers=coach).status_code == 422
+
+
+def test_dashboard(client, coach, other_coach):
+    a = make_athlete(client, coach, "Анна")
+    make_athlete(client, coach, "Архив", is_active=False)
+    make_athlete(client, other_coach, "Чужой")
+    injury = {"title": "Колено", "body_part": "Колено", "severity": "light", "started_at": PAST_DAY.isoformat()}
+    client.post(f"{API}/athletes/{a['id']}/injuries", json=injury, headers=coach)
+    client.post(f"{API}/workouts", json=workout(PAST_DAY, "10:00", "11:00"), headers=coach)
+    client.post(f"{API}/workouts", json=workout(next_monday(), "10:00", "11:00"), headers=coach)
+
+    stats = client.get(f"{API}/reports/dashboard", headers=coach).json()
+    assert stats == {"active_athletes": 1, "active_injuries": 1, "upcoming_workouts": 1}
+
+
+def test_athlete_attendance_history(client, coach, other_coach):
+    a = make_athlete(client, coach, "Анна")
+    for i, status in enumerate(["present", "absent", "present"]):
+        day = PAST_DAY - timedelta(days=i)
+        w = client.post(f"{API}/workouts", json=workout(day, "10:00", "11:00", athlete_ids=[a["id"]]), headers=coach).json()
+        client.put(f"{API}/workouts/{w['id']}/attendance", json={"items": [{"athlete_id": a["id"], "status": status}]}, headers=coach)
+    client.post(f"{API}/workouts", json=workout(next_monday(), "10:00", "11:00", athlete_ids=[a["id"]]), headers=coach)
+
+    r = client.get(f"{API}/reports/athletes/{a['id']}/attendance", headers=coach).json()
+    assert (r["present"], r["total"], r["percent"]) == (2, 3, 66.7)
+    assert [h["status"] for h in r["history"]] == ["present", "absent", "present"]
+    assert r["history"][0]["starts_at"] > r["history"][1]["starts_at"]
+
+    assert client.get(f"{API}/reports/athletes/{a['id']}/attendance", headers=other_coach).status_code == 404

@@ -1,9 +1,10 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Self
 
 from pydantic import BaseModel, model_validator
 
 from app.core.schemas import Id
+from app.modules.workouts.models import AttendanceStatus
 
 MAX_PERIOD_DAYS = 366
 
@@ -45,3 +46,23 @@ class SummaryReport(ReportPeriod):
     attendance_percent: float
     new_injuries: int
     active_injuries: int
+
+
+class DashboardStats(BaseModel):
+    active_athletes: int
+    active_injuries: int
+    upcoming_workouts: int
+
+
+class AttendanceHistoryItem(BaseModel):
+    workout_id: int
+    title: str
+    starts_at: datetime
+    status: AttendanceStatus
+
+
+class AthleteAttendance(BaseModel):
+    present: int
+    total: int
+    percent: float
+    history: list[AttendanceHistoryItem]

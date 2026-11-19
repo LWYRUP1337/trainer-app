@@ -7,8 +7,19 @@ from app.core.config import get_settings
 from app.modules.athletes.models import Athlete
 from app.modules.athletes.service import get_athlete
 from app.modules.injuries.models import Injury
-from app.modules.reports.schemas import AttendanceReport, AttendanceReportFilters, AttendanceRow, ReportPeriod, SummaryReport
+from app.modules.reports.schemas import (
+    AthleteAttendance,
+    AttendanceHistoryItem,
+    AttendanceReport,
+    AttendanceReportFilters,
+    AttendanceRow,
+    DashboardStats,
+    ReportPeriod,
+    SummaryReport,
+)
 from app.modules.workouts.models import AttendanceStatus, Workout, WorkoutParticipant
+
+HISTORY_LIMIT = 10
 
 
 def _bounds(period: ReportPeriod) -> tuple[datetime, datetime]:
@@ -93,4 +104,45 @@ def summary_report(db: Session, coach_id: int, period: ReportPeriod) -> SummaryR
         attendance_percent=_percent(present, absent, excused),
         new_injuries=new_injuries or 0,
         active_injuries=active_injuries or 0,
+    )
+
+
+def dashboard(db: Session, coach_id: int) -> DashboardStats:
+    active_athletes = db.scalar(
+        select(func.count(Athlete.id)).where(Athlete.coach_id == coach_id, Athlete.is_active.is_(True))
+    )
+    active_injuries = db.scalar(
+        select(func.count(Injury.id)).join(Athlete).where(Athlete.coach_id == coach_id, Injury.recovered_at.is_(None))
+    )
+    upcoming = db.scalar(
+        select(func.count(Workout.id)).where(Workout.coach_id == coach_id, Workout.starts_at > datetime.now(UTC))
+    )
+    return DashboardStats(
+        active_athletes=active_athletes or 0,
+        active_injuries=active_injuries or 0,
+        upcoming_workouts=upcoming or 0,
+    )
+
+
+def athlete_attendance(db: Session, coach_id: int, athlete_id: int) -> AthleteAttendance:
+    get_athlete(db, coach_id, athlete_id)
+    marked = (WorkoutParticipant.athlete_id == athlete_id, WorkoutParticipant.status != AttendanceStatus.planned)
+    present, absent, excused = db.execute(
+        select(_count(AttendanceStatus.present), _count(AttendanceStatus.absent), _count(AttendanceStatus.excused)).where(*marked)
+    ).one()
+    history = db.execute(
+        select(Workout.id, Workout.title, Workout.starts_at, WorkoutParticipant.status)
+        .join(Workout, Workout.id == WorkoutParticipant.workout_id)
+        .where(*marked)
+        .order_by(Workout.starts_at.desc())
+        .limit(HISTORY_LIMIT)
+    ).all()
+    return AthleteAttendance(
+        present=present,
+        total=present + absent + excused,
+        percent=_percent(present, absent, excused),
+        history=[
+            AttendanceHistoryItem(workout_id=workout_id, title=title, starts_at=starts_at, status=status)
+            for workout_id, title, starts_at, status in history
+        ],
     )

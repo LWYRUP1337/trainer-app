@@ -3,6 +3,7 @@ from typing import Annotated
 
 from pydantic import BaseModel, Field, StringConstraints, field_validator
 
+from app.core.dates import latest_local_date
 from app.core.schemas import LongText, Name, ORMModel, PageParams, PatchModel
 
 Phone = Annotated[str, StringConstraints(strip_whitespace=True, pattern=r"^\+?[0-9\s\-()]{5,32}$")]
@@ -20,7 +21,7 @@ class AthleteFields(BaseModel):
     @field_validator("birth_date")
     @classmethod
     def not_future(cls, v: date | None) -> date | None:
-        if v and v > date.today():
+        if v and v > latest_local_date():
             raise ValueError("Дата рождения не может быть в будущем")
         return v
 
@@ -47,6 +48,7 @@ class AthleteRead(ORMModel):
     notes: str | None
     nutrition_plan: str | None
     is_active: bool
+    has_active_injury: bool
     created_at: datetime
 
 

@@ -1,10 +1,11 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Numeric, SmallInteger, String, Text, text
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import Boolean, CheckConstraint, Date, ForeignKey, Index, Numeric, SmallInteger, String, Text, exists, text
+from sqlalchemy.orm import Mapped, column_property, mapped_column
 
 from app.db.base import Base, CreatedAtMixin
+from app.modules.injuries.models import Injury
 
 
 class Athlete(CreatedAtMixin, Base):
@@ -25,3 +26,7 @@ class Athlete(CreatedAtMixin, Base):
     notes: Mapped[str | None] = mapped_column(Text)
     nutrition_plan: Mapped[str | None] = mapped_column(Text)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default=text("true"))
+
+    has_active_injury: Mapped[bool] = column_property(
+        exists().where(Injury.athlete_id == id, Injury.recovered_at.is_(None)).correlate_except(Injury)
+    )

@@ -45,3 +45,17 @@ def test_coaches_are_isolated(client, coach, other_coach):
     assert client.patch(f"{API}/athletes/{athlete['id']}", json={"notes": "x"}, headers=other_coach).status_code == 404
     assert client.delete(f"{API}/athletes/{athlete['id']}", headers=other_coach).status_code == 404
     assert client.get(f"{API}/athletes", headers=other_coach).json()["total"] == 0
+
+
+def test_active_injury_flag(client, coach):
+    a = make_athlete(client, coach, "Анна")
+    assert a["has_active_injury"] is False
+    injury = client.post(
+        f"{API}/athletes/{a['id']}/injuries",
+        json={"title": "Колено", "body_part": "Колено", "severity": "light", "started_at": "2026-01-10"},
+        headers=coach,
+    ).json()
+    assert client.get(f"{API}/athletes/{a['id']}", headers=coach).json()["has_active_injury"] is True
+    assert client.get(f"{API}/athletes", headers=coach).json()["items"][0]["has_active_injury"] is True
+    client.patch(f"{API}/injuries/{injury['id']}", json={"recovered_at": "2026-01-20"}, headers=coach)
+    assert client.get(f"{API}/athletes/{a['id']}", headers=coach).json()["has_active_injury"] is False

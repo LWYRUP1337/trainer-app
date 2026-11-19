@@ -1,13 +1,12 @@
 from collections.abc import Collection
 
-from sqlalchemy import exists, func, select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.core.exceptions import BusinessValidationError, NotFoundError
 from app.db.transaction import commit
 from app.modules.athletes.models import Athlete
 from app.modules.athletes.schemas import AthleteCreate, AthleteFilters, AthleteUpdate
-from app.modules.injuries.models import Injury
 
 
 def _like_escape(value: str) -> str:
@@ -41,8 +40,7 @@ def list_athletes(db: Session, coach_id: int, filters: AthleteFilters) -> tuple[
     if filters.is_active is not None:
         stmt = stmt.where(Athlete.is_active.is_(filters.is_active))
     if filters.has_active_injury is not None:
-        active = exists().where(Injury.athlete_id == Athlete.id, Injury.recovered_at.is_(None))
-        stmt = stmt.where(active if filters.has_active_injury else ~active)
+        stmt = stmt.where(Athlete.has_active_injury.is_(filters.has_active_injury))
     total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     items = db.scalars(stmt.order_by(Athlete.full_name, Athlete.id).limit(filters.limit).offset(filters.offset))
     return list(items), total
